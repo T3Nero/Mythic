@@ -6,8 +6,11 @@
 #include "GameFramework//SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMathLibrary.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Math/UnrealMathUtility.h"
+#include "ParentItem.h"
+#include "Components/WidgetComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 APlayerCharacter::APlayerCharacter() :
 	MouseTurnSensitivity(1.f),
@@ -39,55 +42,63 @@ void APlayerCharacter::Tick(float DeltaTime)
 
 void APlayerCharacter::MoveForwardBackward(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if (GetCombatState() == ECombatState::ECS_Unoccupied || GetCombatState() == ECombatState::ECS_Dodging)
 	{
-		// Calculate which X Axis Direction to move in based on Controllers Yaw Rotation
-		const FRotator Rotation{ Controller->GetControlRotation() };
-		const FRotator YawRotation{ 0, Rotation.Yaw, 0 };
-
-		const FVector Direction{ FRotationMatrix{YawRotation}.GetUnitAxis(EAxis::X) };
-		AddMovementInput(Direction, Value);
-
-		if (Value > 0)
+		if ((Controller != nullptr) && (Value != 0.0f))
 		{
-			IsMovingForward = true;
+			// Calculate which X Axis Direction to move in based on Controllers Yaw Rotation
+			const FRotator Rotation{ Controller->GetControlRotation() };
+			const FRotator YawRotation{ 0, Rotation.Yaw, 0 };
+
+			const FVector Direction{ FRotationMatrix{YawRotation}.GetUnitAxis(EAxis::X) };
+			AddMovementInput(Direction, Value);
+
+			if (Value > 0)
+			{
+				IsMovingForward = true;
+			}
+			else if (Value < 0)
+			{
+				IsMovingBackward = true;
+			}
 		}
-		else if (Value < 0)
+		else if (Value == 0)
 		{
-			IsMovingBackward = true;
+			IsMovingForward = false;
+			IsMovingBackward = false;
 		}
 	}
-	else if (Value == 0)
-	{
-		IsMovingForward = false;
-		IsMovingBackward = false;
-	}
+
 }
 
 void APlayerCharacter::MoveRightLeft(float Value)
 {
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if (GetCombatState() == ECombatState::ECS_Unoccupied || GetCombatState() == ECombatState::ECS_Dodging)
 	{
-		// Calculate which Y Axis Direction to move in based on Controllers Yaw Rotation
-		const FRotator Rotation{ Controller->GetControlRotation() };
-		const FRotator YawRotation{ 0, Rotation.Yaw, 0 };
 
-		const FVector Direction{ FRotationMatrix{YawRotation}.GetUnitAxis(EAxis::Y) };
-		AddMovementInput(Direction, Value);
+		if ((Controller != nullptr) && (Value != 0.0f))
+		{
+			// Calculate which Y Axis Direction to move in based on Controllers Yaw Rotation
+			const FRotator Rotation{ Controller->GetControlRotation() };
+			const FRotator YawRotation{ 0, Rotation.Yaw, 0 };
 
-		if (Value > 0)
-		{
-			IsMovingRight = true;
+			const FVector Direction{ FRotationMatrix{YawRotation}.GetUnitAxis(EAxis::Y) };
+			AddMovementInput(Direction, Value);
+
+			if (Value > 0)
+			{
+				IsMovingRight = true;
+			}
+			else if (Value < 0)
+			{
+				IsMovingLeft = true;
+			}
 		}
-		else if (Value < 0)
+		else if (Value == 0)
 		{
-			IsMovingLeft = true;
+			IsMovingLeft = false;
+			IsMovingRight = false;
 		}
-	}
-	else if (Value == 0)
-	{
-		IsMovingLeft = false;
-		IsMovingRight = false;
 	}
 }
 
@@ -111,6 +122,16 @@ void APlayerCharacter::LookAtRate(float Value)
 	AddControllerPitchInput(Value * GamepadLookSensitivity * GetWorld()->GetDeltaSeconds());
 }
 
+void APlayerCharacter::Crouching()
+{
+	if (GetCombatState() != ECombatState::ECS_Unoccupied) { return; }
+
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		SetCrouching(!GetCrouching());
+	}
+}
+
 void APlayerCharacter::Jump()
 {
 	if (GetCrouching())
@@ -120,6 +141,7 @@ void APlayerCharacter::Jump()
 	}
 	else
 	{
+		if (GetCombatState() != ECombatState::ECS_Unoccupied) { return; }
 		ACharacter::Jump();
 	}
 }
@@ -132,6 +154,60 @@ void APlayerCharacter::ZoomCamera(float Value)
 		float ZoomValue = CurrentArmLength - Value * 100.f;
 		ZoomValue = FMath::Clamp(ZoomValue, 250.f, 1000.f);
 		CameraBoom->TargetArmLength = FMath::FInterpTo(CurrentArmLength, ZoomValue, UGameplayStatics::GetWorldDeltaSeconds(this), 20.f);
+	}
+}
+
+void APlayerCharacter::InteractButtonPressed()
+{
+	if (GetCombatState() != ECombatState::ECS_Unoccupied) { return; }
+	if (GetEquippedWeapon()) { return; }
+
+	FVector Start = GetActorLocation();
+	FVector End = GetActorLocation();
+	End.Z -= 50;
+
+	FHitResult HitActor;
+
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.Add(this);
+
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(EObjectTypeQuery(ECC_WorldDynamic));
+	
+	// Does a single sphere trace around the player when interact button is pressed 
+	// returns true if an actor is hit
+
+	bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 30.f, ObjectTypes, false,
+		ActorsToIgnore, EDrawDebugTrace::ForDuration, HitActor, true,
+		FLinearColor::Blue, FLinearColor::Green, 5.f);
+
+	if (bHit)
+	{
+		// Checks to see if the HitActor implements the InteractInterface class
+		if (HitActor.GetActor()->GetClass()->ImplementsInterface(UInteractInterface::StaticClass()))
+		{
+			// Creates a reference to InteractInterface
+			IInteractInterface* InterfaceReference = Cast<IInteractInterface>(HitActor.GetActor());
+			if (InterfaceReference)
+			{
+				// Calls Interact function on any HitActor which implements InteractInterface
+				InterfaceReference->Execute_Interact(HitActor.GetActor());
+			}
+		}
+	}
+}
+
+void APlayerCharacter::EquipWeapon(AParentItem* Weapon)
+{
+	if (Weapon)
+	{
+		const USkeletalMeshSocket* WeaponSocket = GetMesh()->GetSocketByName(FName(Weapon->GetWeaponDrawnSocket()));
+		if (WeaponSocket)
+		{
+			WeaponSocket->AttachActor(Weapon, GetMesh());
+		}
+		SetEquippedWeapon(Weapon);
+		SetWeaponDrawn(true);
 	}
 }
 
@@ -150,6 +226,16 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 	PlayerInputComponent->BindAction(TEXT("Jump"), EInputEvent::IE_Pressed, this, &APlayerCharacter::Jump);
 	PlayerInputComponent->BindAction(TEXT("Jump"), EInputEvent::IE_Released, this, &ACharacter::StopJumping);
-	PlayerInputComponent->BindAction(TEXT("Crouch"), EInputEvent::IE_Pressed, this, &AParentCharacter::Crouching);
+	PlayerInputComponent->BindAction(TEXT("Crouch"), EInputEvent::IE_Pressed, this, &APlayerCharacter::Crouching);
 	PlayerInputComponent->BindAction(TEXT("Dodge"), EInputEvent::IE_Pressed, this, &AParentCharacter::Dodge);
+	PlayerInputComponent->BindAction(TEXT("Interact"), EInputEvent::IE_Pressed, this, &APlayerCharacter::InteractButtonPressed);
+	PlayerInputComponent->BindAction(TEXT("Draw/SheatheWeapon"), EInputEvent::IE_Pressed, this, &AParentCharacter::PlayDrawSheatheWeaponMontage);
+}
+
+void APlayerCharacter::GetItemPickedUp(AParentItem* Item)
+{
+	if (Item->GetItemInfo().ItemType == EItemType::EIT_Weapon)
+	{
+		EquipWeapon(Item);
+	}
 }

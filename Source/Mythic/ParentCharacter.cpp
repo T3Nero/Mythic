@@ -4,6 +4,8 @@
 #include "ParentCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "ParentItem.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 
 // Sets default values
@@ -32,6 +34,7 @@ AParentCharacter::AParentCharacter() :
 void AParentCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	SetUnoccupied();
 
 	// Sets a base movement speed so it can be reset if characters speed is changed through being slowed etc.
 	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
@@ -45,23 +48,6 @@ void AParentCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	InterpCapsuleHalfHeight(DeltaTime);
-}
-
-void AParentCharacter::Crouching()
-{
-	if (!GetCharacterMovement()->IsFalling())
-	{
-		bCrouching = !bCrouching;
-	}
-
-	if (bCrouching)
-	{
-		GetCharacterMovement()->MaxWalkSpeed = 300.f;
-	}
-	else
-	{
-		GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
-	}
 }
 
 void AParentCharacter::InterpCapsuleHalfHeight(float DeltaTime)
@@ -96,6 +82,65 @@ void AParentCharacter::ToggleStrafing()
 	{
 		bUseControllerRotationYaw = false;
 		GetCharacterMovement()->bOrientRotationToMovement = true;
+	}
+}
+
+void AParentCharacter::DrawWeapon()
+{
+	if (EquippedWeapon == nullptr) { return; }
+
+	const USkeletalMeshSocket* WeaponSocket = GetMesh()->GetSocketByName(FName(EquippedWeapon->GetWeaponDrawnSocket()));
+	if (WeaponSocket)
+	{
+		WeaponSocket->AttachActor(EquippedWeapon, GetMesh());
+	}
+	bWeaponDrawn = true;
+}
+
+void AParentCharacter::SetUnoccupied()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+}
+
+void AParentCharacter::SheatheWeapon()
+{
+	if (EquippedWeapon == nullptr) { return; }
+
+	const USkeletalMeshSocket* WeaponSocket = GetMesh()->GetSocketByName(FName(EquippedWeapon->GetWeaponSheathedSocket()));
+	if (WeaponSocket)
+	{
+		WeaponSocket->AttachActor(EquippedWeapon, GetMesh());
+	}
+	bWeaponDrawn = false;
+}
+
+void AParentCharacter::PlayDrawSheatheWeaponMontage()
+{
+	if (EquippedWeapon == nullptr) { return; }
+	if (bCrouching || GetCharacterMovement()->IsFalling()) { return; }
+	if (CombatState != ECombatState::ECS_Unoccupied) { return; }
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance)
+	{
+
+		if (bWeaponDrawn)
+		{
+			if (GetEquippedWeapon()->GetSheatheWeaponMontage())
+			{
+				AnimInstance->Montage_Play(GetEquippedWeapon()->GetSheatheWeaponMontage());
+				CombatState = ECombatState::ECS_SheatheWeapon;
+			}
+		}
+		else
+		{
+			if (GetEquippedWeapon()->GetDrawWeaponMontage())
+			{
+				AnimInstance->Montage_Play(GetEquippedWeapon()->GetDrawWeaponMontage());
+				CombatState = ECombatState::ECS_DrawWeapon;
+			}
+		}
+
 	}
 }
 

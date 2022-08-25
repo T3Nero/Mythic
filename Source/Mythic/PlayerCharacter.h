@@ -46,11 +46,18 @@ protected:
 	// Gamepad Input
 	void LookAtRate(float Value);
 
+	void Crouching();
+
 	// Controls Jumping & Dodging (Same input keys)
 	virtual void Jump() override;
 
 	// Lerps camera boom in/out when inputing mouse wheel axis forward/backward
 	void ZoomCamera(float Value);
+
+	// Press T or X (Xbox Gamepad) to Interact (PickUp item etc.)
+	void InteractButtonPressed();
+
+	void EquipWeapon(class AParentItem* Weapon);
 
 public:
 
@@ -94,12 +101,11 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		bool IsMovingLeft;
 
-	// Locks current animation so it cannot be spammed
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
-		bool MovementLocked;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		class UAnimMontage* DodgeAnimToPlay;
 
 public:
+
+	void GetItemPickedUp(AParentItem* Item);
+
 };

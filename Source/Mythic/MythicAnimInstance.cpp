@@ -42,23 +42,44 @@ void UMythicAnimInstance::UpdateAnimationProperties(float DeltaTime)
 			bIsAccelerating = false;
 		}
 
+		if (Speed > 3 && bIsAccelerating)
+		{
+			bIsMoving = true;
+		}
+		else
+		{
+			bIsMoving = false;
+		}
+
+		// Sets Direction based on characters AimRotation and Movement Rotation (Characters X Velocity)
+		// ** Used for Strafing purposes **
 		FRotator AimRotation = Character->GetBaseAimRotation();
 		FRotator MovementRotation = UKismetMathLibrary::MakeRotFromX(Character->GetVelocity());
-		Direction = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation).Yaw;
 
-		// Checks if player has pressed crouch button and updates animations
+		if (Character->GetStrafing())
+		{
+			Direction = UKismetMathLibrary::NormalizedDeltaRotator(MovementRotation, AimRotation).Yaw;
+		}
+		else
+		{
+			Direction = 0;
+		}
+
+		// Checks if player/npc is crouching and updates animations / speed
 		if (Character->GetCrouching())
 		{
 			bIsCrouching = true;
+			Character->GetCharacterMovement()->MaxWalkSpeed = 300.f;
 		}
 		else
 		{
 			bIsCrouching = false;
+			Character->GetCharacterMovement()->MaxWalkSpeed = Character->GetBaseMovementSpeed();
 		}
 
-		if (bIsCrouching)
+		if (bIsCrouching && Character->GetEquippedWeapon())
 		{
-			Character->SetWeaponDrawn(false);
+			Character->SheatheWeapon();
 		}
 	}
 }

@@ -59,6 +59,15 @@ protected:
 
 	void EquipWeapon(class AParentItem* Weapon);
 
+	void AttackButtonPressed();
+
+	// Overridden from parent class (parents AttackCombo() is for AI Attack)
+	virtual void AttackCombo();
+
+	void DodgeButtonPressed();
+
+	void SetMontageToPlay(UAnimMontage* Montage, FName Section);
+
 public:
 
 	virtual void Tick(float DeltaTime);
@@ -101,8 +110,8 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		bool IsMovingLeft;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
-		class UAnimMontage* DodgeAnimToPlay;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		class UAnimMontage* DodgeMontage;
 
 public:
 

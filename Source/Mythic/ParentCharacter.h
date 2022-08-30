@@ -48,6 +48,8 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void SetUnoccupied();
 
+	void AttackCombo();
+
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -79,17 +81,19 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		ECombatState CombatState;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		int32 ComboIndex;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		bool bCanAttack;
+
 public:
 
-	// Called in AnimBP as an Anim Notify
+	// Called in AnimBP as an Anim Notify or in mythicaniminstance class when crouching
 	UFUNCTION(BlueprintCallable)
 	void SheatheWeapon();
 
 	void PlayDrawSheatheWeaponMontage();
-
-	// Player/NPC attempts to roll dodge when called in Blueprints
-	UFUNCTION(BlueprintImplementableEvent)
-	void Dodge();
 
 
 	// Public Getters
@@ -99,11 +103,15 @@ public:
 	FORCEINLINE AParentItem* GetEquippedWeapon() const { return EquippedWeapon; }
 	FORCEINLINE bool GetWeaponDrawn() const { return bWeaponDrawn; }
 	FORCEINLINE ECombatState GetCombatState() const { return CombatState; }
+	FORCEINLINE int32 GetComboIndex() const { return ComboIndex; }
+	FORCEINLINE bool GetCanAttack() const { return bCanAttack; }
 
 	// Public Setters
 	FORCEINLINE void SetCrouching(bool Crouch) { bCrouching = Crouch; }
 	FORCEINLINE void SetWeaponDrawn(bool WeaponDrawn) { bWeaponDrawn = WeaponDrawn; }
 	FORCEINLINE void SetEquippedWeapon(AParentItem* Weapon) { EquippedWeapon = Weapon; }
 	FORCEINLINE void SetCombatState(ECombatState Combat) { CombatState = Combat; }
+	FORCEINLINE void SetComboIndex(int32 Combo) { ComboIndex = Combo; }
+	FORCEINLINE void SetCanAttack(bool Attack) { bCanAttack = Attack; }
 
 };

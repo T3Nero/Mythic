@@ -14,7 +14,9 @@ AParentCharacter::AParentCharacter() :
 	StandingCapsuleHalfHeight(88.f),
 	CrouchingCapsuleHalfHeight(44.f),
 	bCrouching(false),
-	bStrafing(false)
+	bStrafing(false),
+	ComboIndex(0),
+	bCanAttack(true)
 
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -99,6 +101,10 @@ void AParentCharacter::DrawWeapon()
 
 void AParentCharacter::SetUnoccupied()
 {
+	// Resets Attack
+	ComboIndex = 0;
+	bCanAttack = true;
+
 	CombatState = ECombatState::ECS_Unoccupied;
 }
 
@@ -142,5 +148,12 @@ void AParentCharacter::PlayDrawSheatheWeaponMontage()
 		}
 
 	}
+}
+
+void AParentCharacter::AttackCombo()
+{
+	if (CombatState != ECombatState::ECS_Unoccupied) { return; }
+
+	CombatState = ECombatState::ECS_Attacking;
 }
 

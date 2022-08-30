@@ -68,14 +68,12 @@ void APlayerCharacter::MoveForwardBackward(float Value)
 			IsMovingBackward = false;
 		}
 	}
-
 }
 
 void APlayerCharacter::MoveRightLeft(float Value)
 {
 	if (GetCombatState() == ECombatState::ECS_Unoccupied || GetCombatState() == ECombatState::ECS_Dodging)
 	{
-
 		if ((Controller != nullptr) && (Value != 0.0f))
 		{
 			// Calculate which Y Axis Direction to move in based on Controllers Yaw Rotation
@@ -211,6 +209,26 @@ void APlayerCharacter::EquipWeapon(AParentItem* Weapon)
 	}
 }
 
+void APlayerCharacter::AttackButtonPressed()
+{
+	// Attack Combo
+	if (GetCrouching() || GetCharacterMovement()->IsFalling()) { return; }
+	if (GetCombatState() == ECombatState::ECS_Dodging) { return; }
+
+	if (GetEquippedWeapon())
+	{
+		if (!GetWeaponDrawn())
+		{
+			PlayDrawSheatheWeaponMontage();
+		}
+		else
+		{
+			AttackCombo();
+		}
+	}
+
+}
+
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -227,9 +245,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAction(TEXT("Jump"), EInputEvent::IE_Pressed, this, &APlayerCharacter::Jump);
 	PlayerInputComponent->BindAction(TEXT("Jump"), EInputEvent::IE_Released, this, &ACharacter::StopJumping);
 	PlayerInputComponent->BindAction(TEXT("Crouch"), EInputEvent::IE_Pressed, this, &APlayerCharacter::Crouching);
-	PlayerInputComponent->BindAction(TEXT("Dodge"), EInputEvent::IE_Pressed, this, &AParentCharacter::Dodge);
+	PlayerInputComponent->BindAction(TEXT("Dodge"), EInputEvent::IE_Pressed, this, &APlayerCharacter::DodgeButtonPressed);
 	PlayerInputComponent->BindAction(TEXT("Interact"), EInputEvent::IE_Pressed, this, &APlayerCharacter::InteractButtonPressed);
 	PlayerInputComponent->BindAction(TEXT("Draw/SheatheWeapon"), EInputEvent::IE_Pressed, this, &AParentCharacter::PlayDrawSheatheWeaponMontage);
+	PlayerInputComponent->BindAction(TEXT("Attack"), EInputEvent::IE_Pressed, this, &APlayerCharacter::AttackButtonPressed);
 }
 
 void APlayerCharacter::GetItemPickedUp(AParentItem* Item)
@@ -238,4 +257,112 @@ void APlayerCharacter::GetItemPickedUp(AParentItem* Item)
 	{
 		EquipWeapon(Item);
 	}
+}
+
+void APlayerCharacter::AttackCombo()
+{
+	if (GetCanAttack())
+	{
+		UAnimMontage* Attack = GetEquippedWeapon()->GetAttackMontage();
+		FName SectionName;
+
+		if (GetWeaponDrawn())
+		{
+			if (Attack)
+			{
+				switch (GetComboIndex())
+				{
+				case 0:
+					SectionName = "Attack01";
+					break;
+				case 1:
+					SectionName = "Attack02";
+					break;
+				case 2:
+					SectionName = "Attack03";
+					break;
+				case 3:
+					SectionName = "Attack04";
+					SetComboIndex(0);
+					break;
+				}
+				SetCombatState(ECombatState::ECS_Attacking);
+				SetCanAttack(false);
+				SetMontageToPlay(Attack, SectionName);
+			}
+		}
+	}
+}
+
+void APlayerCharacter::DodgeButtonPressed()
+{
+	if (GetCrouching()) { return; }
+
+	if (GetCombatState() == ECombatState::ECS_Unoccupied || GetCombatState() == ECombatState::ECS_Attacking)
+	{
+		FName SectionName;
+
+		if (GetStrafing())
+		{
+			if (IsMovingForward)
+			{
+				SectionName = "Forward";
+			}
+			if (IsMovingBackward)
+			{
+				SectionName = "Backward";
+			}
+			if (IsMovingLeft)
+			{
+				SectionName = "Left";
+			}
+			if (IsMovingRight)
+			{
+				SectionName = "Right";
+			}
+			if (IsMovingRight && IsMovingForward)
+			{
+				SectionName = "ForwardRight";
+			}
+			if (IsMovingLeft && IsMovingForward)
+			{
+				SectionName = "ForwardLeft";
+			}
+			if (IsMovingLeft && IsMovingBackward)
+			{
+				SectionName = "BackwardLeft";
+			}
+			if (IsMovingRight && IsMovingBackward)
+			{
+				SectionName = "BackwardRight";
+			}
+		}
+		else
+		{
+			SectionName = "Forward";
+		}
+
+		if (GetStrafing() && GetCombatState() == ECombatState::ECS_Attacking)
+		{
+			UAnimMontage* DodgeStep = GetEquippedWeapon()->GetDodgeMontage();
+			if (DodgeStep)
+			{
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				AnimInstance->Montage_Play(DodgeStep);
+			}
+		}
+		else
+		{
+			SetMontageToPlay(DodgeMontage, SectionName);
+		}
+
+		SetCombatState(ECombatState::ECS_Dodging);
+	}
+}
+
+void APlayerCharacter::SetMontageToPlay(UAnimMontage* Montage, FName Section)
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	AnimInstance->Montage_Play(Montage);
+	AnimInstance->Montage_JumpToSection(Section);
 }

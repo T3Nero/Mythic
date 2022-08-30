@@ -85,6 +85,12 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* SheatheWeapon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* AttackMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* DodgeStepMontage;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -105,5 +111,7 @@ public:
 	FORCEINLINE FName GetWeaponSheathedSocket() const { return WeaponSheathedSocket; }
 	FORCEINLINE UAnimMontage* GetDrawWeaponMontage() const { return DrawWeapon; }
 	FORCEINLINE UAnimMontage* GetSheatheWeaponMontage() const { return SheatheWeapon; }
+	FORCEINLINE UAnimMontage* GetAttackMontage() const { return AttackMontage; }
+	FORCEINLINE UAnimMontage* GetDodgeMontage() const { return DodgeStepMontage; }
 
 };

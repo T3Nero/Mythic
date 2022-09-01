@@ -6,6 +6,7 @@
 #include "Components/CapsuleComponent.h"
 #include "ParentItem.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 
 // Sets default values
@@ -15,8 +16,10 @@ AParentCharacter::AParentCharacter() :
 	CrouchingCapsuleHalfHeight(44.f),
 	bCrouching(false),
 	bStrafing(false),
+	bCanStand(true),
 	ComboIndex(0),
-	bCanAttack(true)
+	bCanAttack(true),
+	WeaponSpeed(1.f)
 
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -58,6 +61,28 @@ void AParentCharacter::InterpCapsuleHalfHeight(float DeltaTime)
 	if (bCrouching && !GetCharacterMovement()->IsFalling())
 	{
 		TargetCapsuleHalfHeight = CrouchingCapsuleHalfHeight;
+
+		FVector Start = GetActorLocation();
+		FVector End = GetActorLocation();
+		End.Z += 200;
+
+		ETraceTypeQuery TraceParams = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility);
+
+		TArray<AActor*> ActorsToIgnore;
+		ActorsToIgnore.Add(this);
+
+		FHitResult Hit;
+
+		// Does a line trace upwards from character location to check if character is crouching under an object
+		bool bHit = UKismetSystemLibrary::LineTraceSingle(GetWorld(), Start, End, TraceParams, false, ActorsToIgnore, EDrawDebugTrace::None, Hit, true);
+		if (bHit)
+		{
+			bCanStand = false;
+		}
+		else
+		{
+			bCanStand = true;
+		}
 	}
 	else
 	{

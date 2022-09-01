@@ -29,6 +29,8 @@ void AParentItem::BeginPlay()
 {
 	Super::BeginPlay();
 
+	
+
 	if (PickUpWidget)
 	{
 		PickUpWidget->SetVisibility(false);

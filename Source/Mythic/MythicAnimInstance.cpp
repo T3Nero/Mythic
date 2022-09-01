@@ -77,6 +77,7 @@ void UMythicAnimInstance::UpdateAnimationProperties(float DeltaTime)
 			Character->GetCharacterMovement()->MaxWalkSpeed = Character->GetBaseMovementSpeed();
 		}
 
+
 		if (bIsCrouching && Character->GetEquippedWeapon())
 		{
 			Character->SheatheWeapon();

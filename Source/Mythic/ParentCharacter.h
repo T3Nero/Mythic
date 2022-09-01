@@ -75,6 +75,10 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 		bool bWeaponDrawn;
 
+	// Check if character is currently crouching under an object
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
+		bool bCanStand;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		class AParentItem* EquippedWeapon;
 
@@ -86,6 +90,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 		bool bCanAttack;
+
+	// Set at runtime based on equipped weapon
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		float WeaponSpeed;
 
 public:
 
@@ -105,6 +113,8 @@ public:
 	FORCEINLINE ECombatState GetCombatState() const { return CombatState; }
 	FORCEINLINE int32 GetComboIndex() const { return ComboIndex; }
 	FORCEINLINE bool GetCanAttack() const { return bCanAttack; }
+	FORCEINLINE bool GetCanStand() const { return bCanStand; }
+	FORCEINLINE float GetWeaponSpeed() const { return WeaponSpeed; }
 
 	// Public Setters
 	FORCEINLINE void SetCrouching(bool Crouch) { bCrouching = Crouch; }

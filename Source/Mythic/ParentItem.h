@@ -12,11 +12,12 @@ UENUM(BlueprintType)
 enum class EItemType : uint8
 {
 	EIT_Null UMETA(DisplayName = "Null"),
-	EIT_Potion UMETA(DisplayName = "Potion"),
+	EIT_Consumable UMETA(DisplayName = "Consumable"),
 	EIT_Weapon UMETA(DisplayName = "Weapon"),
 	EIT_Armour UMETA(DisplayName = "Armour"),
 	EIT_Accessory UMETA(DisplayName = "Accessory"),
 	EIT_QuestItem UMETA(DisplayName = "Quest Item"),
+	EIT_CraftMaterial UMETA(DisplayName = "Crafting Material"),
 
 	EIT_MAX
 };

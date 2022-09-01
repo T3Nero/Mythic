@@ -124,9 +124,12 @@ void APlayerCharacter::Crouching()
 {
 	if (GetCombatState() != ECombatState::ECS_Unoccupied) { return; }
 
-	if (!GetCharacterMovement()->IsFalling())
+	if (GetCanStand())
 	{
-		SetCrouching(!GetCrouching());
+		if (!GetCharacterMovement()->IsFalling())
+		{
+			SetCrouching(!GetCrouching());
+		}
 	}
 }
 
@@ -134,8 +137,11 @@ void APlayerCharacter::Jump()
 {
 	if (GetCrouching())
 	{
-		SetCrouching(false);
-		GetCharacterMovement()->MaxWalkSpeed = GetBaseMovementSpeed();
+		if (GetCanStand())
+		{
+			SetCrouching(false);
+			GetCharacterMovement()->MaxWalkSpeed = GetBaseMovementSpeed();
+		}
 	}
 	else
 	{
@@ -176,7 +182,7 @@ void APlayerCharacter::InteractButtonPressed()
 	// returns true if an actor is hit
 
 	bool bHit = UKismetSystemLibrary::SphereTraceSingleForObjects(GetWorld(), Start, End, 30.f, ObjectTypes, false,
-		ActorsToIgnore, EDrawDebugTrace::ForDuration, HitActor, true,
+		ActorsToIgnore, EDrawDebugTrace::None, HitActor, true,
 		FLinearColor::Blue, FLinearColor::Green, 5.f);
 
 	if (bHit)
@@ -365,4 +371,10 @@ void APlayerCharacter::SetMontageToPlay(UAnimMontage* Montage, FName Section)
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	AnimInstance->Montage_Play(Montage);
 	AnimInstance->Montage_JumpToSection(Section);
+
+	// Sets play rate of attack combo based on equipped weapon speed
+	if (GetCombatState() == ECombatState::ECS_Attacking)
+	{
+		AnimInstance->Montage_SetPlayRate(Montage, GetWeaponSpeed());
+	}
 }

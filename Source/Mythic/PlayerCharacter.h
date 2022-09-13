@@ -57,7 +57,7 @@ protected:
 	// Press T or X (Xbox Gamepad) to Interact (PickUp item etc.)
 	void InteractButtonPressed();
 
-	void EquipWeapon(class AParentItem* Weapon);
+	void EquipWeapon(class AWeapon* Weapon);
 
 	void AttackButtonPressed();
 
@@ -66,7 +66,7 @@ protected:
 
 	void DodgeButtonPressed();
 
-	void SetMontageToPlay(UAnimMontage* Montage, FName Section);
+	void SetMontageToPlay(UAnimMontage* Montage, FName Section) const;
 
 public:
 
@@ -115,6 +115,6 @@ private:
 
 public:
 
-	void GetItemPickedUp(AParentItem* Item);
+	void GetItemPickedUp(class AParentItem* Item);
 
 };

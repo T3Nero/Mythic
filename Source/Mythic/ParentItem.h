@@ -13,26 +13,11 @@ enum class EItemType : uint8
 {
 	EIT_Null UMETA(DisplayName = "Null"),
 	EIT_Consumable UMETA(DisplayName = "Consumable"),
-	EIT_Weapon UMETA(DisplayName = "Weapon"),
-	EIT_Armour UMETA(DisplayName = "Armour"),
-	EIT_Accessory UMETA(DisplayName = "Accessory"),
+	EIT_Equipment UMETA(DisplayName = "Equipment"),
 	EIT_QuestItem UMETA(DisplayName = "Quest Item"),
 	EIT_CraftMaterial UMETA(DisplayName = "Crafting Material"),
 
 	EIT_MAX
-};
-
-USTRUCT(BlueprintType)
-struct FItemInfo
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString ItemName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	EItemType ItemType;
-
 };
 
 UCLASS()
@@ -54,7 +39,6 @@ protected:
 	UFUNCTION()
 	void OnHideItemWidget(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
-
 private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item Components", meta = (AllowPrivateAccess = "true"))
@@ -69,28 +53,12 @@ private:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "References", meta = (AllowPrivateAccess = "true"))
 	class APlayerCharacter* Player;
 
-	// stores information about each item into a struct (edit via Blueprints)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item Properties", meta = (AllowPrivateAccess = "true"))
-	FItemInfo ItemInfo;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	FName WeaponDrawnSocket;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	FName WeaponSheathedSocket;
+	// enum to set the items type (Weapon, Consumable etc.)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Properties", meta = (AllowPrivateAccess = "true"))
+	EItemType ItemType;
 
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	UAnimMontage* DrawWeapon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	UAnimMontage* SheatheWeapon;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	UAnimMontage* AttackMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-	UAnimMontage* DodgeStepMontage;
 
 public:	
 	// Called every frame
@@ -102,17 +70,16 @@ public:
 	// Called when player presses Interact button & is near the item (Picks up the Item)
 	// Must include " _Implementation " when declaring Blueprint native Events (Functions)
 	// overriden from InteractInterface
-	void Interact_Implementation() override; // Declared here but will be used in Blueprints as an Interact Event
+	virtual void Interact_Implementation() override; // Declared here but will be used in Blueprints as an Interact Event
+
 
 	FORCEINLINE UWidgetComponent* GetPickUpWidget() const { return PickUpWidget; }
 	FORCEINLINE USphereComponent* GetPickUpCollision() const { return PickUpCollision; }
 	FORCEINLINE USkeletalMeshComponent* GetItemMesh() const { return ItemMesh; }
-	FORCEINLINE FItemInfo GetItemInfo() const { return ItemInfo; }
-	FORCEINLINE FName GetWeaponDrawnSocket() const { return WeaponDrawnSocket; }
-	FORCEINLINE FName GetWeaponSheathedSocket() const { return WeaponSheathedSocket; }
-	FORCEINLINE UAnimMontage* GetDrawWeaponMontage() const { return DrawWeapon; }
-	FORCEINLINE UAnimMontage* GetSheatheWeaponMontage() const { return SheatheWeapon; }
-	FORCEINLINE UAnimMontage* GetAttackMontage() const { return AttackMontage; }
-	FORCEINLINE UAnimMontage* GetDodgeMontage() const { return DodgeStepMontage; }
+	FORCEINLINE EItemType GetItemType() const { return ItemType; }
+	FORCEINLINE APlayerCharacter* GetPlayer() const {return Player;}
+
+	FORCEINLINE void SetItemType(EItemType Item) {ItemType = Item;}
+
 
 };

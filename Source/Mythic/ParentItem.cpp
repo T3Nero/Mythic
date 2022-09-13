@@ -21,7 +21,7 @@ AParentItem::AParentItem()
 	PickUpCollision = CreateDefaultSubobject<USphereComponent>(TEXT("PickUp Collision"));
 	PickUpCollision->SetupAttachment(ItemMesh);
 
-	ItemInfo.ItemType = EItemType::EIT_Null;
+	ItemType = EItemType::EIT_Null;
 }
 
 // Called when the game starts or when spawned
@@ -54,6 +54,8 @@ void AParentItem::Interact_Implementation()
 	if (Player)
 	{
 		Player->GetItemPickedUp(this);
+		PickUpWidget->SetVisibility(false);
+		PickUpCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 

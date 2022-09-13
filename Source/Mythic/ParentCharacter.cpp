@@ -4,9 +4,13 @@
 #include "ParentCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "ParentItem.h"
+#include "Weapon.h"
+#include "Blueprint/UserWidget.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Math/UnrealMathUtility.h"
+
 
 
 // Sets default values
@@ -19,7 +23,9 @@ AParentCharacter::AParentCharacter() :
 	bCanStand(true),
 	ComboIndex(0),
 	bCanAttack(true),
-	WeaponSpeed(1.f)
+	WeaponSpeed(1.f),
+	TeamNumber(0),
+	bIsDead(false)
 
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
@@ -40,6 +46,8 @@ void AParentCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	SetUnoccupied();
+	InitializeBaseStats();
+	CurrentHP = BaseStatsStruct->MaxHP;
 
 	// Sets a base movement speed so it can be reset if characters speed is changed through being slowed etc.
 	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
@@ -82,6 +90,11 @@ void AParentCharacter::InterpCapsuleHalfHeight(float DeltaTime)
 		else
 		{
 			bCanStand = true;
+		}
+
+		if(EquippedWeapon)
+		{
+			SheatheWeapon();
 		}
 	}
 	else
@@ -130,6 +143,12 @@ void AParentCharacter::SetUnoccupied()
 	ComboIndex = 0;
 	bCanAttack = true;
 
+	if(CombatState == ECombatState::ECS_Dodging)
+	{
+		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Block);
+		GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECR_Block);
+	}
+
 	CombatState = ECombatState::ECS_Unoccupied;
 }
 
@@ -175,10 +194,115 @@ void AParentCharacter::PlayDrawSheatheWeaponMontage()
 	}
 }
 
+bool AParentCharacter::IsEnemy(AActor* Target) const
+{
+	const AParentCharacter* Enemy = Cast<AParentCharacter>(Target);
+	if(Enemy)
+	{
+		if(TeamNumber != Enemy->GetTeamNumber())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	EquippedWeapon = Cast<AWeapon>(DamageCauser);
+	if(EquippedWeapon == nullptr) {return DamageAmount;}
+
+	AParentCharacter* Damager = Cast<AParentCharacter>(EquippedWeapon->GetWeaponOwner());
+	if(Damager)
+	{
+		float AdrenalinePerHit = (0.2 * Damager->BaseStatsStruct->Dexterity);
+		AdrenalinePerHit = FMath::Clamp(AdrenalinePerHit, 0, 20);
+
+		if(Damager->BaseStatsStruct->Adrenaline < 100)
+		{
+			Damager->BaseStatsStruct->Adrenaline += AdrenalinePerHit;
+			Damager->BaseStatsStruct->Adrenaline = FMath::Clamp(Damager->BaseStatsStruct->Adrenaline, 0, 100);
+		}
+
+		float WeaponSkillPerHit = (0.05 * Damager->BaseStatsStruct->Dexterity);
+		WeaponSkillPerHit = FMath::Clamp(WeaponSkillPerHit, 0, 5);
+
+		if(EquippedWeapon->WeaponSkillStruct->WeaponSkill < 200)
+		{
+			EquippedWeapon->WeaponSkillStruct->WeaponSkill += WeaponSkillPerHit;
+			EquippedWeapon->WeaponSkillStruct->WeaponSkill = FMath::Clamp(EquippedWeapon->WeaponSkillStruct->WeaponSkill, 0, 200);
+		}
+
+		TotalDamageTaken = DamageAmount - BaseStatsStruct->PhysicalArmour - BaseStatsStruct->ElementalArmour;
+
+		// Increases damage done during Combo Attack
+		for (int32 i = 0; i <= Damager->GetComboIndex(); i++)
+		{
+			if(Damager->GetComboIndex() == 0)
+			{
+				i = 0;
+			}
+			else
+			{
+				TotalDamageTaken *= 1.2f;
+			}
+		}
+	}
+
+	if(BaseStatsStruct)
+	{
+		TotalDamageTaken = FMath::Clamp(TotalDamageTaken, 1, TotalDamageTaken);
+		bool bCriticalHit;
+
+		// Critical Hit
+		if(FMath::RandRange(0, 100) <= Damager->BaseStatsStruct->CriticalChance)
+		{
+			TotalDamageTaken *= 2;
+			bCriticalHit = true;
+		}
+		else
+		{
+			bCriticalHit = false;
+		}
+
+		if(CurrentHP - TotalDamageTaken <= 0.f)
+		{
+			// Dead
+			CurrentHP = 0;
+			bIsDead = true;
+		}
+		else
+		{
+			CurrentHP -= TotalDamageTaken;
+
+		}
+
+		// Shows hit numbers above damaged actors head
+		if(!IsPlayerControlled())
+		{
+			FVector HitLocation = GetActorLocation();
+			HitLocation.Z += 100;
+			ShowHitNumber(TotalDamageTaken, HitLocation, bCriticalHit);
+		}
+	}
+
+	return DamageAmount;
+}
+
 void AParentCharacter::AttackCombo()
 {
 	if (CombatState != ECombatState::ECS_Unoccupied) { return; }
 
 	CombatState = ECombatState::ECS_Attacking;
+}
+
+void AParentCharacter::InitializeBaseStats()
+{
+	if(BaseStatsData)
+	{
+		const FString ContextString = RowName.ToString();
+		BaseStatsStruct = BaseStatsData->FindRow<FBaseStats>(RowName, ContextString, true); 
+	}
 }
 

@@ -9,14 +9,16 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Math/UnrealMathUtility.h"
 #include "ParentItem.h"
+#include "Weapon.h"
 #include "Components/WidgetComponent.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Components/CapsuleComponent.h"
 
 APlayerCharacter::APlayerCharacter() :
-	MouseTurnSensitivity(1.f),
-	MouseLookSensitivity(1.f),
-	GamepadTurnSensitivity(90.f),
-	GamepadLookSensitivity(90.f)
+	MouseTurnSensitivity(20.f),
+	MouseLookSensitivity(20.f),
+	GamepadTurnSensitivity(70.f),
+	GamepadLookSensitivity(70.f)
 {
 
 	// Creates a Camera Boom / Spring Arm (Sets Distance from Player to Camera)
@@ -201,7 +203,7 @@ void APlayerCharacter::InteractButtonPressed()
 	}
 }
 
-void APlayerCharacter::EquipWeapon(AParentItem* Weapon)
+void APlayerCharacter::EquipWeapon(AWeapon*Weapon)
 {
 	if (Weapon)
 	{
@@ -211,6 +213,7 @@ void APlayerCharacter::EquipWeapon(AParentItem* Weapon)
 			WeaponSocket->AttachActor(Weapon, GetMesh());
 		}
 		SetEquippedWeapon(Weapon);
+		SetWeaponSpeed(Weapon->GetWeaponSpeed());
 		SetWeaponDrawn(true);
 	}
 }
@@ -259,9 +262,10 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 void APlayerCharacter::GetItemPickedUp(AParentItem* Item)
 {
-	if (Item->GetItemInfo().ItemType == EItemType::EIT_Weapon)
+	if (Item->GetItemType() == EItemType::EIT_Equipment)
 	{
-		EquipWeapon(Item);
+		AWeapon* Weapon = Cast<AWeapon>(Item);
+		EquipWeapon(Weapon);
 	}
 }
 
@@ -270,12 +274,12 @@ void APlayerCharacter::AttackCombo()
 	if (GetCanAttack())
 	{
 		UAnimMontage* Attack = GetEquippedWeapon()->GetAttackMontage();
-		FName SectionName;
 
 		if (GetWeaponDrawn())
 		{
 			if (Attack)
 			{
+				FName SectionName;
 				switch (GetComboIndex())
 				{
 				case 0:
@@ -289,7 +293,9 @@ void APlayerCharacter::AttackCombo()
 					break;
 				case 3:
 					SectionName = "Attack04";
-					SetComboIndex(0);
+					break;
+				default:
+					SectionName = "Attack01";
 					break;
 				}
 				SetCombatState(ECombatState::ECS_Attacking);
@@ -306,7 +312,7 @@ void APlayerCharacter::DodgeButtonPressed()
 
 	if (GetCombatState() == ECombatState::ECS_Unoccupied || GetCombatState() == ECombatState::ECS_Attacking)
 	{
-		FName SectionName;
+		FName SectionName = "Forward";
 
 		if (GetStrafing())
 		{
@@ -343,30 +349,44 @@ void APlayerCharacter::DodgeButtonPressed()
 				SectionName = "BackwardRight";
 			}
 		}
-		else
+		
+		if (GetCombatState() == ECombatState::ECS_Attacking)
 		{
-			SectionName = "Forward";
-		}
-
-		if (GetStrafing() && GetCombatState() == ECombatState::ECS_Attacking)
-		{
-			UAnimMontage* DodgeStep = GetEquippedWeapon()->GetDodgeMontage();
-			if (DodgeStep)
+			if(BaseStatsStruct->Adrenaline >= 2)
 			{
-				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-				AnimInstance->Montage_Play(DodgeStep);
+				UAnimMontage* DodgeStep = GetEquippedWeapon()->GetDodgeMontage();
+				if (DodgeStep)
+				{
+					UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+					AnimInstance->Montage_Play(DodgeStep);
+					BaseStatsStruct->Adrenaline = BaseStatsStruct->Adrenaline -= 2;
+				}
+			}
+			else
+			{
+				return;
 			}
 		}
 		else
 		{
-			SetMontageToPlay(DodgeMontage, SectionName);
+			if(BaseStatsStruct->Adrenaline >= 10)
+			{
+				SetMontageToPlay(DodgeMontage, SectionName);
+				BaseStatsStruct->Adrenaline = BaseStatsStruct->Adrenaline -= 10;
+			}
+			else
+			{
+				return;
+			}
 		}
 
+		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Ignore);
+		GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECR_Overlap);
 		SetCombatState(ECombatState::ECS_Dodging);
 	}
 }
 
-void APlayerCharacter::SetMontageToPlay(UAnimMontage* Montage, FName Section)
+void APlayerCharacter::SetMontageToPlay(UAnimMontage* Montage, FName Section) const
 {
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	AnimInstance->Montage_Play(Montage);

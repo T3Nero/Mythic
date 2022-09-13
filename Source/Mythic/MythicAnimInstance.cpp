@@ -5,6 +5,7 @@
 #include "ParentCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Weapon.h"
 
 UMythicAnimInstance::UMythicAnimInstance() :
 	Speed(0.f),
@@ -77,11 +78,6 @@ void UMythicAnimInstance::UpdateAnimationProperties(float DeltaTime)
 			Character->GetCharacterMovement()->MaxWalkSpeed = Character->GetBaseMovementSpeed();
 		}
 
-
-		if (bIsCrouching && Character->GetEquippedWeapon())
-		{
-			Character->SheatheWeapon();
-		}
 	}
 }
 

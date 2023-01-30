@@ -10,6 +10,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Math/UnrealMathUtility.h"
+#include "Particles/ParticleSystem.h"
 
 
 
@@ -20,11 +21,11 @@ AParentCharacter::AParentCharacter() :
 	CrouchingCapsuleHalfHeight(44.f),
 	bCrouching(false),
 	bStrafing(false),
+	TeamNumber(0),
 	bCanStand(true),
 	ComboIndex(0),
 	bCanAttack(true),
 	WeaponSpeed(1.f),
-	TeamNumber(0),
 	bIsDead(false)
 
 {
@@ -56,6 +57,40 @@ void AParentCharacter::BeginPlay()
 	ToggleStrafing();
 }
 
+// Spawns blood splatter when character hit
+void AParentCharacter::SpawnBlood() const
+{
+	if(BloodSplatter)
+	{
+		FVector SpawnLocation = GetActorLocation();
+		SpawnLocation.Z += 50;
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), BloodSplatter, SpawnLocation);
+	}
+}
+
+// Applies bleeding damage over time
+// Character bleeds for 20% of damage dealt to them over 20 seconds (ticks every 2 seconds)
+// Called from ApplyBleed() function
+void AParentCharacter::BleedingDOT(float Damage, AWeapon* DamageCauser)
+{
+	// Ticks a total of 10 times before timer is cleared
+	if(BleedIndex < 10)
+	{
+		BleedIndex++;
+		bBleedApplied = true;
+
+		BleedDamage = Damage *= 0.05; // 5% of Base Damage Dealt
+		UGameplayStatics::ApplyDamage(this, BleedDamage, GetInstigatorController(), DamageCauser, UDamageType::StaticClass());
+	}
+	else
+	{
+		bBleedApplied = false;
+		BleedDelegate.Unbind();
+		GetWorldTimerManager().ClearTimer(BleedTimerHandle);
+		BleedTimerHandle.Invalidate();
+	}
+}
+
 // Called every frame
 void AParentCharacter::Tick(float DeltaTime)
 {
@@ -63,6 +98,7 @@ void AParentCharacter::Tick(float DeltaTime)
 	InterpCapsuleHalfHeight(DeltaTime);
 }
 
+// Reduces characters capsule collider when crouching : allows for crouching under objects & cannot stand back up if they are currently under an object
 void AParentCharacter::InterpCapsuleHalfHeight(float DeltaTime)
 {
 	float TargetCapsuleHalfHeight{};
@@ -125,6 +161,7 @@ void AParentCharacter::ToggleStrafing()
 	}
 }
 
+// Attaches weapon to characters drawn weapon socket : Called in AnimBP as an anim notify
 void AParentCharacter::DrawWeapon()
 {
 	if (EquippedWeapon == nullptr) { return; }
@@ -137,12 +174,15 @@ void AParentCharacter::DrawWeapon()
 	bWeaponDrawn = true;
 }
 
+// Characters cannot perform next action until their CombatState is set to Unoccupied
 void AParentCharacter::SetUnoccupied()
 {
 	// Resets Attack
 	ComboIndex = 0;
 	bCanAttack = true;
 
+	// Dodge ends, character can no longer pass through other characters and can be hit
+	// During dodge, character is invincible
 	if(CombatState == ECombatState::ECS_Dodging)
 	{
 		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Block);
@@ -152,6 +192,7 @@ void AParentCharacter::SetUnoccupied()
 	CombatState = ECombatState::ECS_Unoccupied;
 }
 
+// Attaches weapon to characters sheathe weapon socket : Called in AnimBP as an anim notify 
 void AParentCharacter::SheatheWeapon()
 {
 	if (EquippedWeapon == nullptr) { return; }
@@ -164,14 +205,15 @@ void AParentCharacter::SheatheWeapon()
 	bWeaponDrawn = false;
 }
 
+// Toggles draw/sheathe weapon animation 
 void AParentCharacter::PlayDrawSheatheWeaponMontage()
 {
 	if (EquippedWeapon == nullptr) { return; }
 	if (bCrouching || GetCharacterMovement()->IsFalling()) { return; }
 	if (CombatState != ECombatState::ECS_Unoccupied) { return; }
 
-	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	if (AnimInstance)
+	
+	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
 
 		if (bWeaponDrawn)
@@ -194,6 +236,19 @@ void AParentCharacter::PlayDrawSheatheWeaponMontage()
 	}
 }
 
+// Weapons may have a chance of applying a bleed effect when character is hit
+void AParentCharacter::ApplyBleed(float Damage, AWeapon* DamageCauser)
+{
+	// BleedingDOT ticks every 2 seconds
+	constexpr float BleedTick = 2.0f;
+
+	BleedIndex = 0;
+	BleedDelegate.BindUFunction(this, "BleedingDOT", Damage, DamageCauser);
+	GetWorldTimerManager().SetTimer(BleedTimerHandle, BleedDelegate, BleedTick, true);
+}
+
+// Check to see if target is an enemy
+// Returns true if other character is an enemy
 bool AParentCharacter::IsEnemy(AActor* Target) const
 {
 	const AParentCharacter* Enemy = Cast<AParentCharacter>(Target);
@@ -207,56 +262,47 @@ bool AParentCharacter::IsEnemy(AActor* Target) const
 	return false;
 }
 
+// Called any time ApplyDamage() function is being called
 float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
 	AActor* DamageCauser)
 {
-	EquippedWeapon = Cast<AWeapon>(DamageCauser);
-	if(EquippedWeapon == nullptr) {return DamageAmount;}
-
-	AParentCharacter* Damager = Cast<AParentCharacter>(EquippedWeapon->GetWeaponOwner());
-	if(Damager)
+	// Weapon doing the damage
+	const AWeapon* WeaponEquipped = Cast<AWeapon>(DamageCauser);
+	const AParentCharacter* WeaponOwner = Cast<AParentCharacter>(WeaponEquipped->GetWeaponOwner());
+	if(WeaponEquipped && WeaponOwner)
 	{
-		float AdrenalinePerHit = (0.2 * Damager->BaseStatsStruct->Dexterity);
-		AdrenalinePerHit = FMath::Clamp(AdrenalinePerHit, 0, 20);
-
-		if(Damager->BaseStatsStruct->Adrenaline < 100)
+		if(DamageAmount == BleedDamage)
 		{
-			Damager->BaseStatsStruct->Adrenaline += AdrenalinePerHit;
-			Damager->BaseStatsStruct->Adrenaline = FMath::Clamp(Damager->BaseStatsStruct->Adrenaline, 0, 100);
+			TotalDamageTaken = DamageAmount;
 		}
-
-		float WeaponSkillPerHit = (0.05 * Damager->BaseStatsStruct->Dexterity);
-		WeaponSkillPerHit = FMath::Clamp(WeaponSkillPerHit, 0, 5);
-
-		if(EquippedWeapon->WeaponSkillStruct->WeaponSkill < 200)
+		else
 		{
-			EquippedWeapon->WeaponSkillStruct->WeaponSkill += WeaponSkillPerHit;
-			EquippedWeapon->WeaponSkillStruct->WeaponSkill = FMath::Clamp(EquippedWeapon->WeaponSkillStruct->WeaponSkill, 0, 200);
+			TotalDamageTaken = DamageAmount - BaseStatsStruct->PhysicalArmour - BaseStatsStruct->ElementalArmour;
 		}
-
-		TotalDamageTaken = DamageAmount - BaseStatsStruct->PhysicalArmour - BaseStatsStruct->ElementalArmour;
 
 		// Increases damage done during Combo Attack
-		for (int32 i = 0; i <= Damager->GetComboIndex(); i++)
+		for (int32 i = 0; i <= WeaponOwner->GetComboIndex(); i++)
 		{
-			if(Damager->GetComboIndex() == 0)
+			if(WeaponOwner->GetComboIndex() == 0)
 			{
 				i = 0;
 			}
 			else
 			{
-				TotalDamageTaken *= 1.2f;
+				TotalDamageTaken *= 1.2f; // Each hits damage increased by 20% during combo
 			}
 		}
 	}
 
+	// Actor taking damage
 	if(BaseStatsStruct)
 	{
 		TotalDamageTaken = FMath::Clamp(TotalDamageTaken, 1, TotalDamageTaken);
 		bool bCriticalHit;
+		SpawnBlood();
 
 		// Critical Hit
-		if(FMath::RandRange(0, 100) <= Damager->BaseStatsStruct->CriticalChance)
+		if(FMath::RandRange(0, 100) <= WeaponOwner->BaseStatsStruct->CriticalChance)
 		{
 			TotalDamageTaken *= 2;
 			bCriticalHit = true;
@@ -283,7 +329,16 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 		{
 			FVector HitLocation = GetActorLocation();
 			HitLocation.Z += 100;
-			ShowHitNumber(TotalDamageTaken, HitLocation, bCriticalHit);
+
+			if(DamageAmount == BleedDamage)
+			{
+				ShowDOTNumber(TotalDamageTaken, HitLocation, bCriticalHit);
+			}
+			else
+			{
+				ShowHitNumber(TotalDamageTaken, HitLocation, bCriticalHit, WeaponEquipped->GetBrutalHit());
+			}
+			
 		}
 	}
 

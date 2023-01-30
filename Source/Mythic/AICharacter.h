@@ -19,6 +19,8 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
+	virtual void BeginPlay() override;
+
 protected:
 
 	UFUNCTION(BlueprintCallable)
@@ -29,15 +31,24 @@ protected:
 
 	void UpdateHitNumbers();
 
+	AWeapon* SpawnWeapon() const;
+
+	void EquipWeapon(AWeapon* WeaponToEquip);
+
 private:
 
+	// Weapon AI will equip
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<AWeapon> WeaponClass;
+
 	// Map to store hit number widgets and hit locations
-	UPROPERTY(VisibleAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY()
 	TMap<UUserWidget*, FVector> HitNumbers;
 
 	// Time to display hit number before removing it
 	UPROPERTY(EditAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	float HitNumberDestroyTime;
+
 
 
 	

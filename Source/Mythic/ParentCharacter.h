@@ -59,6 +59,22 @@ struct FBaseStats : public FTableRowBase
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float CriticalChance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float TwoHandSkill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float OneHandShieldSkill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float SpearSkill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float DualWieldSkill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float StaffSkill;
+
 	
 };
 
@@ -109,8 +125,20 @@ protected:
 
 	void InitializeBaseStats();
 
+	// Called in Blueprints (AI Blueprint)
 	UFUNCTION(BlueprintImplementableEvent)
-	void ShowHitNumber(int32 Damage, FVector HitLocation, bool bCriticalHit);
+	void ShowHitNumber(int32 Damage, FVector HitLocation, bool bCriticalHit, bool bBrutalHit);
+
+	// Called in Blueprints (AI Blueprint)
+	UFUNCTION(BlueprintImplementableEvent)
+	void ShowDOTNumber(int32 Damage, FVector HitLocation, bool bCriticalHit);
+
+	// Spawns a blood particle when enemy takes damage
+	void SpawnBlood() const;
+
+	// Called in ApplyBleed() as a looping timer (deals 2% of Total Damage each tick)
+	UFUNCTION()
+	void BleedingDOT(float Damage, class AWeapon* DamageCauser);
 
 public:
 	// Called every frame
@@ -130,9 +158,13 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 		bool bCrouching;
 
-	// Will be toggled in blueprints when TAB targeting (allows strafing when locked on to enemy)
+	// Will be toggled in blueprints when TAB targeting (allows strafing locomotion)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
 		bool bStrafing;
+
+	// Team Number determines whether an NPC is friendly/enemy
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		int32 TeamNumber;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		bool bWeaponDrawn;
@@ -157,20 +189,26 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 		float WeaponSpeed;
 
-	// Team Number determines whether an NPC is friendly/enemy
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-		int32 TeamNumber;
 
 	// Data Table to use when setting Base Stats Struct values
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Base Stats", meta = (AllowPrivateAccess = "true"))
-		class UDataTable* BaseStatsData;
+		UDataTable* BaseStatsData;
 
 	// Row Name to look for within Data Table
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Base Stats", meta = (AllowPrivateAccess = "true"))
 		FName RowName;
 
+	// Blood particle to use when damaging enemy
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UParticleSystem* BloodSplatter;
+
 	int32 CurrentHP;
 	int32 TotalDamageTaken;
+	int32 BleedIndex;
+	bool bBleedApplied;
+	float BleedDamage;
+	FTimerHandle BleedTimerHandle;
+	FTimerDelegate BleedDelegate;
 
 public:
 
@@ -179,6 +217,9 @@ public:
 	void SheatheWeapon();
 
 	void PlayDrawSheatheWeaponMontage();
+
+	// Called during weapon hit if Bleed Procs
+	void ApplyBleed(float Damage, AWeapon* DamageCauser);
 
 	// Compares team numbers to check if target is an enemy
 	bool IsEnemy(AActor* Target) const;

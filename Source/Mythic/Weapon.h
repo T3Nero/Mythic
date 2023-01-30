@@ -69,14 +69,17 @@ struct FWeaponStats : public FTableRowBase
 
 };
 
-USTRUCT(BlueprintType)
-struct FWeaponSkill : public FTableRowBase
+UENUM(BlueprintType)
+enum class EWeaponType : uint8
 {
-	GENERATED_BODY()
+	EWT_Null UMETA(DisplayName = "Null"),
+	EWT_TwoHand UMETA(DisplayName = "TwoHand"),
+	EWT_OneHandShield UMETA(DisplayName = "OneHand&Shield"),
+	EWT_DualWield UMETA(DisplayName = "DualWield"),
+	EWT_Spear UMETA(DisplayName = "Spear"),
+	EWT_Staff UMETA(DisplayName = "Staff"),
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float WeaponSkill;
-	
+	EWT_MAX
 };
 
 UCLASS()
@@ -92,6 +95,7 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual void Tick(float DeltaSeconds) override;
 	
 	void InitializeWeaponStats();
 
@@ -100,19 +104,32 @@ protected:
 
 	void DoDamage(AActor* ActorHit);
 
+	// Called when doing damage (Chance to knockback & deal 10% increased damage to enemy if weapon has Brutality stat)
+	void BrutalityProc(AActor* Receiver);
+
+	// Called in DoDamage() (Chance to apply bleed effect to enemy) ** deals damage over time if weapon has Bleed stat **
+	void BleedProc(AActor* Receiver, float Damage);
+
+	// Called when doing damage (adrenaline is required for dodging / ultimate skills)
+	void GainAdrenaline();
+
+	// Called using a timer to slowly decrease adrenaline over time
+	UFUNCTION()
+	void DecreaseAdrenaline();
+
+	// Called when doing damage (each weapon type has its own weapon skill, required for equipping stronger weapons/skills) 
+	void GainWeaponSkill() const;
+
 private:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
+		EWeaponType WeaponType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 		class UDataTable* WeaponData;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 		FName RowName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-		class UDataTable* WeaponSkillData;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-		FName WeaponSkillRowName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 		FName WeaponDrawnSocket;
@@ -133,23 +150,33 @@ private:
 		UAnimMontage* DodgeStepMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon Components", meta = (AllowPrivateAccess = "true"))
-	class USceneComponent* TraceStart;
+	USceneComponent* TraceStart;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon Components", meta = (AllowPrivateAccess = "true"))
 	USceneComponent* TraceEnd;
 
 	// Checks if actor has been damaged so we only damage once during the current attack (cleared in anim notify after attack)
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 	TArray<AActor*> AlreadyDamagedActors;
+
+	// Knockback Montage to play when Brutality Procs
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	UAnimMontage* KnockbackMontage;
+
+	
+	float DecreaseAdrenalineTick;
+	FTimerHandle DecAdrenalineTimerHandle;
+
+	float BrutalityDamage;
+	bool bBrutalHit;
 
 	class AParentCharacter* WeaponOwner;
 	float SpeedValue;
 	TMap<FString, float> WeaponSpeedMap;
+
 	FWeaponStats* WeaponStats;
 
 public:
-
-	FWeaponSkill* WeaponSkillStruct;
 
 	FORCEINLINE FName GetWeaponDrawnSocket() const { return WeaponDrawnSocket; }
 	FORCEINLINE FName GetWeaponSheathedSocket() const { return WeaponSheathedSocket; }
@@ -160,5 +187,6 @@ public:
 	FORCEINLINE float GetWeaponSpeed() const { return SpeedValue; }
 	FORCEINLINE FWeaponStats* GetWeaponStats() const { return WeaponStats; }
 	FORCEINLINE AParentCharacter* GetWeaponOwner() const { return WeaponOwner; }
+	FORCEINLINE bool GetBrutalHit() const { return bBrutalHit; }
 	
 };

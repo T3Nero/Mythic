@@ -5,6 +5,9 @@
 
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "Weapon.h"
+#include "Components/SphereComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 AAICharacter::AAICharacter() :
 	HitNumberDestroyTime(1.5f)
@@ -15,6 +18,12 @@ void AAICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UpdateHitNumbers();
+}
+
+void AAICharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	EquipWeapon(SpawnWeapon());
 }
 
 void AAICharacter::StoreHitNumber(UUserWidget* HitNumber, FVector Location)
@@ -52,5 +61,31 @@ void AAICharacter::UpdateHitNumbers()
 			ScreenPosition);
 
 		HitNumber->SetPositionInViewport(ScreenPosition);
+	}
+}
+
+AWeapon* AAICharacter::SpawnWeapon() const
+{
+	if(WeaponClass)
+	{
+		return GetWorld()->SpawnActor<AWeapon>(WeaponClass);
+	}
+
+	return nullptr;
+}
+
+void AAICharacter::EquipWeapon(AWeapon* WeaponToEquip)
+{
+	if(WeaponToEquip)
+	{
+		const USkeletalMeshSocket* WeaponSocket = GetMesh()->GetSocketByName(FName(WeaponToEquip->GetWeaponDrawnSocket()));
+		if(WeaponSocket)
+		{
+			WeaponSocket->AttachActor(WeaponToEquip, GetMesh());
+		}
+		SetEquippedWeapon(WeaponToEquip);
+		WeaponToEquip->GetPickUpCollision()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SetWeaponSpeed(WeaponToEquip->GetWeaponSpeed());
+		SetWeaponDrawn(true);
 	}
 }

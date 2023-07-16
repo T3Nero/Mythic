@@ -131,14 +131,23 @@ protected:
 
 	// Called in Blueprints (AI Blueprint)
 	UFUNCTION(BlueprintImplementableEvent)
-	void ShowDOTNumber(int32 Damage, FVector HitLocation, bool bCriticalHit);
+	void ShowDOTNumber(int32 Damage, FVector HitLocation, bool bCriticalHit, bool bBleed, bool bPoison);
 
 	// Spawns a blood particle when enemy takes damage
 	void SpawnBlood() const;
 
-	// Called in ApplyBleed() as a looping timer (deals 2% of Total Damage each tick)
+	// Called in ApplyBleed() as a looping timer
 	UFUNCTION()
 	void BleedingDOT(float Damage, class AWeapon* DamageCauser);
+
+	// Called in ApplyPoison() as a looping timer
+	UFUNCTION()
+	void PoisonDOT(float Damage, class AWeapon* DamageCauser);
+
+	// Updates stats when equipping / removing items etc. 
+	UFUNCTION()
+	void UpdateAttributes(bool bEquippingItem) const;
+
 
 public:
 	// Called every frame
@@ -203,12 +212,22 @@ private:
 	UParticleSystem* BloodSplatter;
 
 	int32 CurrentHP;
+	int32 CurrentMP;
 	int32 TotalDamageTaken;
+
+	// Bleed Damage
 	int32 BleedIndex;
 	bool bBleedApplied;
 	float BleedDamage;
 	FTimerHandle BleedTimerHandle;
 	FTimerDelegate BleedDelegate;
+
+	// Poison Damage
+	int32 PoisonIndex;
+	bool bPoisonApplied;
+	float PoisonDamage;
+	FTimerHandle PoisonTimerHandle;
+	FTimerDelegate PoisonDelegate;
 
 public:
 
@@ -220,6 +239,9 @@ public:
 
 	// Called during weapon hit if Bleed Procs
 	void ApplyBleed(float Damage, AWeapon* DamageCauser);
+
+	// Called during weapon hit if Poison Procs
+	void ApplyPoison(float Damage, AWeapon* DamageCauser);
 
 	// Compares team numbers to check if target is an enemy
 	bool IsEnemy(AActor* Target) const;
@@ -241,14 +263,19 @@ public:
 	FORCEINLINE bool GetCanStand() const { return bCanStand; }
 	FORCEINLINE float GetWeaponSpeed() const { return WeaponSpeed; }
 	FORCEINLINE int32 GetTeamNumber() const { return TeamNumber; }
+	FORCEINLINE int32 GetCurrentHP() const { return CurrentHP; }
+	FORCEINLINE int32 GetCurrentMP() const { return CurrentMP; }
 
 	// Public Setters
 	FORCEINLINE void SetCrouching(bool Crouch) { bCrouching = Crouch; }
 	FORCEINLINE void SetWeaponDrawn(bool WeaponDrawn) { bWeaponDrawn = WeaponDrawn; }
+	FORCEINLINE void SetStrafing(bool Strafing) { bStrafing = Strafing; }
 	FORCEINLINE void SetEquippedWeapon(AWeapon* Weapon) { EquippedWeapon = Weapon; }
 	FORCEINLINE void SetCombatState(ECombatState Combat) { CombatState = Combat; }
 	FORCEINLINE void SetComboIndex(int32 Combo) { ComboIndex = Combo; }
 	FORCEINLINE void SetCanAttack(bool Attack) { bCanAttack = Attack; }
 	FORCEINLINE void SetWeaponSpeed(float Speed) { WeaponSpeed = Speed; }
+	FORCEINLINE void SetCurrentHP(int32 HP) { CurrentHP = HP; }
+	FORCEINLINE void SetCurrentMP(int32 MP) { CurrentMP = MP; }
 
 };

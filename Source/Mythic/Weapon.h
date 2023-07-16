@@ -110,6 +110,16 @@ protected:
 	// Called in DoDamage() (Chance to apply bleed effect to enemy) ** deals damage over time if weapon has Bleed stat **
 	void BleedProc(AActor* Receiver, float Damage);
 
+	// Called in DoDamage() : Chance to apply poison on hit if weapon has poison stat
+	void PoisonProc(AActor* Receiver, float Damage);
+
+	// Applies a DOT poison for 5 minutes
+	void AgonizingPoison(float Damage);
+
+	void LifeStealProc(float DamageDone);
+
+	void ManaStealProc(AActor* Receiver, float DamageDone);
+
 	// Called when doing damage (adrenaline is required for dodging / ultimate skills)
 	void GainAdrenaline();
 
@@ -119,6 +129,11 @@ protected:
 
 	// Called when doing damage (each weapon type has its own weapon skill, required for equipping stronger weapons/skills) 
 	void GainWeaponSkill() const;
+
+	UFUNCTION(BlueprintCallable)
+	void TwoHandExplosion();
+
+	
 
 private:
 
@@ -146,9 +161,6 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 		UAnimMontage* AttackMontage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-		UAnimMontage* DodgeStepMontage;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon Components", meta = (AllowPrivateAccess = "true"))
 	USceneComponent* TraceStart;
 
@@ -171,6 +183,7 @@ private:
 	bool bBrutalHit;
 
 	class AParentCharacter* WeaponOwner;
+	AParentCharacter* Enemy;
 	float SpeedValue;
 	TMap<FString, float> WeaponSpeedMap;
 
@@ -178,15 +191,17 @@ private:
 
 public:
 
+	bool CheckWeaponRequirements(APlayerCharacter* Char);
+
 	FORCEINLINE FName GetWeaponDrawnSocket() const { return WeaponDrawnSocket; }
 	FORCEINLINE FName GetWeaponSheathedSocket() const { return WeaponSheathedSocket; }
 	FORCEINLINE UAnimMontage* GetDrawWeaponMontage() const { return DrawWeapon; }
 	FORCEINLINE UAnimMontage* GetSheatheWeaponMontage() const { return SheatheWeapon; }
 	FORCEINLINE UAnimMontage* GetAttackMontage() const { return AttackMontage; }
-	FORCEINLINE UAnimMontage* GetDodgeMontage() const { return DodgeStepMontage; }
 	FORCEINLINE float GetWeaponSpeed() const { return SpeedValue; }
 	FORCEINLINE FWeaponStats* GetWeaponStats() const { return WeaponStats; }
 	FORCEINLINE AParentCharacter* GetWeaponOwner() const { return WeaponOwner; }
 	FORCEINLINE bool GetBrutalHit() const { return bBrutalHit; }
+	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
 	
 };

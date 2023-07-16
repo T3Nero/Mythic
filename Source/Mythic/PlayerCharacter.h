@@ -111,7 +111,9 @@ private:
 		bool IsMovingLeft;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-		class UAnimMontage* DodgeMontage;
+		UAnimMontage* DodgeMontage;
+
+
 
 public:
 

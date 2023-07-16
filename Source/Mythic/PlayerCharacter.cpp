@@ -203,9 +203,9 @@ void APlayerCharacter::InteractButtonPressed()
 	}
 }
 
-void APlayerCharacter::EquipWeapon(AWeapon*Weapon)
+void APlayerCharacter::EquipWeapon(AWeapon* Weapon)
 {
-	if (Weapon)
+	if (Weapon->CheckWeaponRequirements(this))
 	{
 		const USkeletalMeshSocket* WeaponSocket = GetMesh()->GetSocketByName(FName(Weapon->GetWeaponDrawnSocket()));
 		if (WeaponSocket)
@@ -215,6 +215,9 @@ void APlayerCharacter::EquipWeapon(AWeapon*Weapon)
 		SetEquippedWeapon(Weapon);
 		SetWeaponSpeed(Weapon->GetWeaponSpeed());
 		SetWeaponDrawn(true);
+		SetStrafing(true);
+		ToggleStrafing();
+		UpdateAttributes(true);
 	}
 }
 
@@ -349,35 +352,15 @@ void APlayerCharacter::DodgeButtonPressed()
 				SectionName = "BackwardRight";
 			}
 		}
-		
-		if (GetCombatState() == ECombatState::ECS_Attacking)
+
+		if(BaseStatsStruct->Adrenaline >= 10)
 		{
-			if(BaseStatsStruct->Adrenaline >= 2)
-			{
-				UAnimMontage* DodgeStep = GetEquippedWeapon()->GetDodgeMontage();
-				if (DodgeStep)
-				{
-					UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-					AnimInstance->Montage_Play(DodgeStep);
-					BaseStatsStruct->Adrenaline = BaseStatsStruct->Adrenaline -= 2;
-				}
-			}
-			else
-			{
-				return;
-			}
+			SetMontageToPlay(DodgeMontage, SectionName);
+			BaseStatsStruct->Adrenaline = BaseStatsStruct->Adrenaline -= 10;
 		}
 		else
 		{
-			if(BaseStatsStruct->Adrenaline >= 10)
-			{
-				SetMontageToPlay(DodgeMontage, SectionName);
-				BaseStatsStruct->Adrenaline = BaseStatsStruct->Adrenaline -= 10;
-			}
-			else
-			{
-				return;
-			}
+			return;
 		}
 
 		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECR_Ignore);

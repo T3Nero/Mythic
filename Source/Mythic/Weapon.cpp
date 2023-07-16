@@ -4,6 +4,7 @@
 #include "Weapon.h"
 
 #include "ParentCharacter.h"
+#include "PlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Math/UnrealMathUtility.h"
@@ -95,7 +96,7 @@ void AWeapon::DoDamage(AActor* ActorHit)
 	float TotalDamage = (PhysicalDamage + ElementalDamage + CharacterDamage);
 
 	BrutalityProc(ActorHit);
-	if(BrutalityDamage > 0)
+	if(bBrutalHit)
 	{
 		TotalDamage *= BrutalityDamage;
 	}
@@ -105,16 +106,19 @@ void AWeapon::DoDamage(AActor* ActorHit)
 
 	UGameplayStatics::ApplyDamage(ActorHit, TotalDamage, GetInstigatorController(), this, UDamageType::StaticClass());
 	BleedProc(ActorHit, TotalDamage);
+	PoisonProc(ActorHit, TotalDamage);
+	LifeStealProc(TotalDamage);
+	ManaStealProc(ActorHit, TotalDamage);
 }
 
 // Does 10% increased damage & knocks back enemy
 void AWeapon::BrutalityProc(AActor* Receiver)
 {
-	AParentCharacter* Enemy = Cast<AParentCharacter>(Receiver);
+	Enemy = Cast<AParentCharacter>(Receiver);
 	if(Enemy)
 	{
 		const float ProcValue {FMath::RandRange(0.f, 100.f)};
-		if(ProcValue <= WeaponStats->Brutality)
+		if(ProcValue < WeaponStats->Brutality)
 		{
 			UAnimInstance* AnimInstance = Enemy->GetMesh()->GetAnimInstance();
 			if(AnimInstance && KnockbackMontage)
@@ -136,7 +140,7 @@ void AWeapon::BrutalityProc(AActor* Receiver)
 
 void AWeapon::BleedProc(AActor* Receiver, float Damage)
 {
-	AParentCharacter* Enemy = Cast<AParentCharacter>(Receiver);
+	Enemy = Cast<AParentCharacter>(Receiver);
 	if(Enemy)
 	{
 		const float ProcValue {FMath::RandRange(0.f, 100.f)};
@@ -145,6 +149,73 @@ void AWeapon::BleedProc(AActor* Receiver, float Damage)
 			// Apply Bleed
 			// Bleed is applied to damaged actor (sets a looping timer for damage over time)
 			Enemy->ApplyBleed(Damage, this);
+		}
+	}
+}
+
+
+void AWeapon::PoisonProc(AActor* Receiver, float Damage)
+{
+	Enemy = Cast<AParentCharacter>(Receiver);
+	if(Enemy)
+	{
+		const float ProcValue {FMath::RandRange(0.f, 100.f)};
+		if(ProcValue <= WeaponStats->Poison)
+		{
+			// Apply Poison
+			AgonizingPoison(Damage);
+		}
+	}
+}
+
+void AWeapon::AgonizingPoison(float Damage)
+{
+	Enemy->ApplyPoison(Damage, this);
+}
+
+void AWeapon::LifeStealProc(float DamageDone)
+{
+	if(WeaponOwner)
+	{
+		const float ProcValue {FMath::RandRange(0.f, 100.f)};
+		if(ProcValue <= WeaponStats->LifeSteal)
+		{
+			// Heal Weapon Owner for 10% Damage Done
+			if(WeaponOwner->GetCurrentHP() < WeaponOwner->BaseStatsStruct->MaxHP)
+			{
+				int32 HP = WeaponOwner->GetCurrentHP();
+				WeaponOwner->SetCurrentHP(HP += (DamageDone * 0.1f));
+				WeaponOwner->SetCurrentHP(FMath::Clamp(WeaponOwner->GetCurrentHP(), 0, WeaponOwner->BaseStatsStruct->MaxHP));
+			}
+		}
+	}
+}
+
+void AWeapon::ManaStealProc(AActor* Receiver, float DamageDone)
+{
+	if(WeaponOwner)
+	{
+		const float ProcValue {FMath::RandRange(0.f, 100.f)};
+		if(ProcValue <= WeaponStats->ManaSteal)
+		{
+			// Regain MP for 10% Damage Done
+			if(WeaponOwner->GetCurrentMP() < WeaponOwner->BaseStatsStruct->MaxMP)
+			{
+				int32 MP = WeaponOwner->GetCurrentMP();
+				WeaponOwner->SetCurrentMP(MP += (DamageDone * 0.1f));
+				WeaponOwner->SetCurrentMP(FMath::Clamp(WeaponOwner->GetCurrentMP(), 0, WeaponOwner->BaseStatsStruct->MaxMP));
+
+				Enemy = Cast<AParentCharacter>(Receiver);
+				if(Enemy)
+				{
+					if(Enemy->GetCurrentMP() > 0)
+					{
+						int32 EnemyMP = Enemy->GetCurrentMP();
+						Enemy->SetCurrentMP(EnemyMP -= (DamageDone * 0.1f));
+						Enemy->SetCurrentMP(FMath::Clamp(Enemy->GetCurrentMP(), 0, Enemy->BaseStatsStruct->MaxMP));
+					}
+				}
+			}
 		}
 	}
 }
@@ -219,5 +290,87 @@ void AWeapon::GainWeaponSkill() const
 	default:
 		break;
 	}
+}
+
+void AWeapon::TwoHandExplosion()
+{
+	const ETraceTypeQuery TraceParams = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility);
+
+	TArray<AActor*> ActorsToIgnore;
+	ActorsToIgnore.AddUnique(this);
+	
+	TArray<FHitResult> Hits;
+
+	const FVector Location = TraceStart->GetComponentLocation();
+
+	bool bHits = UKismetSystemLibrary::SphereTraceMulti(GetWorld(), Location, Location, 500.f, TraceParams, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, Hits, true, FColor::Blue, FColor::Green, 2.0f);
+	if(bHits)
+	{
+		WeaponOwner = Cast<AParentCharacter>(GetAttachParentActor());
+		if(WeaponOwner)
+		{
+			for (auto Hit : Hits)
+			{
+				AActor* ActorHit;
+				ActorHit = Hit.GetActor();
+				if(WeaponOwner->IsEnemy(ActorHit))
+				{
+					if(AlreadyDamagedActors.Contains(ActorHit) == false)
+					{
+						AlreadyDamagedActors.AddUnique(ActorHit);
+						DoDamage(ActorHit);
+					}
+				}
+			}
+		}
+	}
+
+
+}
+
+bool AWeapon::CheckWeaponRequirements(APlayerCharacter* Char)
+{
+
+	if(Char->BaseStatsStruct->Strength >= WeaponStats->RequiredStrength && Char->BaseStatsStruct->Intelligence >= WeaponStats->RequiredIntelligence)
+	{
+		switch (WeaponType)
+		{
+		case EWeaponType::EWT_TwoHand:
+			if(Char->BaseStatsStruct->TwoHandSkill >= WeaponStats->RequiredSkill)
+			{
+				return true;
+			}
+			break;
+		case EWeaponType::EWT_OneHandShield:
+			if(Char->BaseStatsStruct->OneHandShieldSkill >= WeaponStats->RequiredSkill)
+			{
+				return true;
+			}
+			break;
+		case EWeaponType::EWT_DualWield:
+			if(Char->BaseStatsStruct->DualWieldSkill >= WeaponStats->RequiredSkill)
+			{
+				return true;
+			}
+			break;
+		case EWeaponType::EWT_Spear:
+			if(Char->BaseStatsStruct->SpearSkill >= WeaponStats->RequiredSkill)
+			{
+				return true;
+			}
+			break;
+		case EWeaponType::EWT_Staff:
+			if(Char->BaseStatsStruct->StaffSkill >= WeaponStats->RequiredSkill)
+			{
+				return true;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+	
+
+	return false;
 }
 

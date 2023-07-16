@@ -49,12 +49,10 @@ void AParentCharacter::BeginPlay()
 	SetUnoccupied();
 	InitializeBaseStats();
 	CurrentHP = BaseStatsStruct->MaxHP;
+	CurrentMP = BaseStatsStruct->MaxMP;
 
 	// Sets a base movement speed so it can be reset if characters speed is changed through being slowed etc.
 	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
-
-	// Called in beginplay for testing purposes (will call on blueprints when adding TAB targetenemy input)
-	ToggleStrafing();
 }
 
 // Spawns blood splatter when character hit
@@ -76,10 +74,11 @@ void AParentCharacter::BleedingDOT(float Damage, AWeapon* DamageCauser)
 	// Ticks a total of 10 times before timer is cleared
 	if(BleedIndex < 10)
 	{
-		BleedIndex++;
+		++BleedIndex;
 		bBleedApplied = true;
 
-		BleedDamage = Damage *= 0.05; // 5% of Base Damage Dealt
+		Damage *= 0.2f;
+		BleedDamage = Damage *= 0.1f;
 		UGameplayStatics::ApplyDamage(this, BleedDamage, GetInstigatorController(), DamageCauser, UDamageType::StaticClass());
 	}
 	else
@@ -91,11 +90,78 @@ void AParentCharacter::BleedingDOT(float Damage, AWeapon* DamageCauser)
 	}
 }
 
+// Deals 60% of damage dealt over 2 minutes (ticks every second)
+void AParentCharacter::PoisonDOT(float Damage, AWeapon* DamageCauser)
+{
+	// Ticks for 2 minutes total
+	if(PoisonIndex < 120)
+	{
+		++PoisonIndex;
+		bPoisonApplied = true;
+
+		Damage *= 0.05f;
+		PoisonDamage = Damage *= 0.1f;
+		UGameplayStatics::ApplyDamage(this, PoisonDamage, GetInstigatorController(), DamageCauser, UDamageType::StaticClass());
+	}
+	else
+	{
+		bPoisonApplied = false;
+		PoisonDelegate.Unbind();
+		GetWorldTimerManager().ClearTimer(PoisonTimerHandle);
+		PoisonTimerHandle.Invalidate();
+	}
+}
+
+void AParentCharacter::UpdateAttributes(bool bEquippingItem) const
+{
+	if(EquippedWeapon)
+	{
+		if(bEquippingItem)
+		{
+			BaseStatsStruct->Strength += EquippedWeapon->GetWeaponStats()->Strength;
+			BaseStatsStruct->Intelligence += EquippedWeapon->GetWeaponStats()->Intelligence;
+			BaseStatsStruct->Constitution += EquippedWeapon->GetWeaponStats()->Constitution;
+			BaseStatsStruct->Wisdom += EquippedWeapon->GetWeaponStats()->Wisdom;
+			BaseStatsStruct->Dexterity += EquippedWeapon->GetWeaponStats()->Dexterity;
+
+			BaseStatsStruct->PhysicalDamage += EquippedWeapon->GetWeaponStats()->Strength * 2.0f;
+			BaseStatsStruct->PhysicalArmour += EquippedWeapon->GetWeaponStats()->Constitution * 1.0f;
+			BaseStatsStruct->ElementalDamage += EquippedWeapon->GetWeaponStats()->Intelligence * 1.0f;
+			BaseStatsStruct->ElementalArmour += EquippedWeapon->GetWeaponStats()->Wisdom * 1.0f;
+			BaseStatsStruct->HealingPotency += EquippedWeapon->GetWeaponStats()->Intelligence * 1.0f;
+			BaseStatsStruct->MaxHP += EquippedWeapon->GetWeaponStats()->Constitution * 20.0f;
+			BaseStatsStruct->MaxMP += EquippedWeapon->GetWeaponStats()->Wisdom * 20.0f;
+			BaseStatsStruct->CriticalChance += EquippedWeapon->GetWeaponStats()->Dexterity * 0.5f;
+		}
+		else
+		{
+			BaseStatsStruct->Strength -= EquippedWeapon->GetWeaponStats()->Strength;
+			BaseStatsStruct->Intelligence -= EquippedWeapon->GetWeaponStats()->Intelligence;
+			BaseStatsStruct->Constitution -= EquippedWeapon->GetWeaponStats()->Constitution;
+			BaseStatsStruct->Wisdom -= EquippedWeapon->GetWeaponStats()->Wisdom;
+			BaseStatsStruct->Dexterity -= EquippedWeapon->GetWeaponStats()->Dexterity;
+
+			BaseStatsStruct->PhysicalDamage -= EquippedWeapon->GetWeaponStats()->Strength * 2.0f;
+			BaseStatsStruct->PhysicalArmour -= EquippedWeapon->GetWeaponStats()->Constitution * 1.0f;
+			BaseStatsStruct->ElementalDamage -= EquippedWeapon->GetWeaponStats()->Intelligence * 1.0f;
+			BaseStatsStruct->ElementalArmour -= EquippedWeapon->GetWeaponStats()->Wisdom * 1.0f;
+			BaseStatsStruct->HealingPotency -= EquippedWeapon->GetWeaponStats()->Intelligence * 1.0f;
+			BaseStatsStruct->MaxHP -= EquippedWeapon->GetWeaponStats()->Constitution * 20.0f;
+			BaseStatsStruct->MaxMP -= EquippedWeapon->GetWeaponStats()->Wisdom * 20.0f;
+			BaseStatsStruct->CriticalChance -= EquippedWeapon->GetWeaponStats()->Dexterity * 0.5f;
+		}
+	}
+}
+
 // Called every frame
 void AParentCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	InterpCapsuleHalfHeight(DeltaTime);
+
+	if(bCrouching)
+	{
+		InterpCapsuleHalfHeight(DeltaTime);
+	}
 }
 
 // Reduces characters capsule collider when crouching : allows for crouching under objects & cannot stand back up if they are currently under an object
@@ -215,13 +281,13 @@ void AParentCharacter::PlayDrawSheatheWeaponMontage()
 	
 	if (UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance())
 	{
-
 		if (bWeaponDrawn)
 		{
 			if (GetEquippedWeapon()->GetSheatheWeaponMontage())
 			{
 				AnimInstance->Montage_Play(GetEquippedWeapon()->GetSheatheWeaponMontage());
 				CombatState = ECombatState::ECS_SheatheWeapon;
+				bStrafing = false;
 			}
 		}
 		else
@@ -230,21 +296,37 @@ void AParentCharacter::PlayDrawSheatheWeaponMontage()
 			{
 				AnimInstance->Montage_Play(GetEquippedWeapon()->GetDrawWeaponMontage());
 				CombatState = ECombatState::ECS_DrawWeapon;
+				bStrafing = true;
 			}
 		}
-
+		ToggleStrafing();
 	}
 }
 
 // Weapons may have a chance of applying a bleed effect when character is hit
 void AParentCharacter::ApplyBleed(float Damage, AWeapon* DamageCauser)
 {
-	// BleedingDOT ticks every 2 seconds
-	constexpr float BleedTick = 2.0f;
+	if(!bBleedApplied)
+	{
+		// BleedingDOT ticks every 2 seconds
+		constexpr float BleedTick = 2.0f;
 
-	BleedIndex = 0;
-	BleedDelegate.BindUFunction(this, "BleedingDOT", Damage, DamageCauser);
-	GetWorldTimerManager().SetTimer(BleedTimerHandle, BleedDelegate, BleedTick, true);
+		BleedIndex = 0;
+		BleedDelegate.BindUFunction(this, "BleedingDOT", Damage, DamageCauser);
+		GetWorldTimerManager().SetTimer(BleedTimerHandle, BleedDelegate, BleedTick, true);
+	}
+}
+
+void AParentCharacter::ApplyPoison(float Damage, AWeapon* DamageCauser)
+{
+	if(!bPoisonApplied)
+	{
+		constexpr  float PoisonTick = 1.0f;
+
+		PoisonIndex = 0;
+		PoisonDelegate.BindUFunction(this, "PoisonDOT", Damage, DamageCauser);
+		GetWorldTimerManager().SetTimer(PoisonTimerHandle, PoisonDelegate, PoisonTick, true);
+	}
 }
 
 // Check to see if target is an enemy
@@ -266,18 +348,22 @@ bool AParentCharacter::IsEnemy(AActor* Target) const
 float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator,
 	AActor* DamageCauser)
 {
+	bool bNormalHit = false;
+
 	// Weapon doing the damage
 	const AWeapon* WeaponEquipped = Cast<AWeapon>(DamageCauser);
 	const AParentCharacter* WeaponOwner = Cast<AParentCharacter>(WeaponEquipped->GetWeaponOwner());
 	if(WeaponEquipped && WeaponOwner)
 	{
-		if(DamageAmount == BleedDamage)
+		if(DamageAmount == BleedDamage || DamageAmount == PoisonDamage)
 		{
 			TotalDamageTaken = DamageAmount;
+			bNormalHit = false;
 		}
 		else
 		{
-			TotalDamageTaken = DamageAmount - BaseStatsStruct->PhysicalArmour - BaseStatsStruct->ElementalArmour;
+			TotalDamageTaken = (DamageAmount - BaseStatsStruct->PhysicalArmour - BaseStatsStruct->ElementalArmour);
+			bNormalHit = true;
 		}
 
 		// Increases damage done during Combo Attack
@@ -312,9 +398,9 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 			bCriticalHit = false;
 		}
 
+		// Dead
 		if(CurrentHP - TotalDamageTaken <= 0.f)
 		{
-			// Dead
 			CurrentHP = 0;
 			bIsDead = true;
 		}
@@ -324,21 +410,17 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 
 		}
 
-		// Shows hit numbers above damaged actors head
+		// Shows hit numbers above enemy head
 		if(!IsPlayerControlled())
 		{
 			FVector HitLocation = GetActorLocation();
-			HitLocation.Z += 100;
+			HitLocation.Z += FMath::RandRange(80, 100);
 
-			if(DamageAmount == BleedDamage)
-			{
-				ShowDOTNumber(TotalDamageTaken, HitLocation, bCriticalHit);
-			}
-			else
+			if(bNormalHit)
 			{
 				ShowHitNumber(TotalDamageTaken, HitLocation, bCriticalHit, WeaponEquipped->GetBrutalHit());
 			}
-			
+
 		}
 	}
 

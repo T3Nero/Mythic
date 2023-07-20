@@ -56,6 +56,7 @@ void AWeapon::InitializeWeaponStats()
 	}
 }
 
+// Sphere trace to check if weapon swing collided with an Enemy
 void AWeapon::DamageDetectionTrace()
 {
 	const ETraceTypeQuery TraceParams = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility);
@@ -79,6 +80,7 @@ void AWeapon::DamageDetectionTrace()
 			{
 				if(AlreadyDamagedActors.Contains(ActorHit) == false)
 				{
+					bIsTwoHandExplosion = false;
 					AlreadyDamagedActors.AddUnique(ActorHit);
 					DoDamage(ActorHit);
 				}
@@ -87,6 +89,7 @@ void AWeapon::DamageDetectionTrace()
 	}
 }
 
+// Called when dealing damage to an enemy hit by detection trace
 void AWeapon::DoDamage(AActor* ActorHit)
 {
 	const float PhysicalDamage = WeaponStats->PhysicalDamage;
@@ -105,10 +108,14 @@ void AWeapon::DoDamage(AActor* ActorHit)
 	GainWeaponSkill();
 
 	UGameplayStatics::ApplyDamage(ActorHit, TotalDamage, GetInstigatorController(), this, UDamageType::StaticClass());
-	BleedProc(ActorHit, TotalDamage);
-	PoisonProc(ActorHit, TotalDamage);
-	LifeStealProc(TotalDamage);
-	ManaStealProc(ActorHit, TotalDamage);
+
+	if(!bIsTwoHandExplosion)
+	{
+		BleedProc(ActorHit, TotalDamage);
+		PoisonProc(ActorHit, TotalDamage);
+		LifeStealProc(TotalDamage);
+		ManaStealProc(ActorHit, TotalDamage);
+	}
 }
 
 // Does 10% increased damage & knocks back enemy
@@ -292,6 +299,7 @@ void AWeapon::GainWeaponSkill() const
 	}
 }
 
+// Two Hand Combo final attack causes an explosion which damages enemies within its radius
 void AWeapon::TwoHandExplosion()
 {
 	const ETraceTypeQuery TraceParams = UEngineTypes::ConvertToTraceType(ECollisionChannel::ECC_Visibility);
@@ -309,7 +317,7 @@ void AWeapon::TwoHandExplosion()
 		WeaponOwner = Cast<AParentCharacter>(GetAttachParentActor());
 		if(WeaponOwner)
 		{
-			for (auto Hit : Hits)
+			for (const FHitResult Hit : Hits)
 			{
 				AActor* ActorHit;
 				ActorHit = Hit.GetActor();
@@ -317,6 +325,7 @@ void AWeapon::TwoHandExplosion()
 				{
 					if(AlreadyDamagedActors.Contains(ActorHit) == false)
 					{
+						bIsTwoHandExplosion = true;
 						AlreadyDamagedActors.AddUnique(ActorHit);
 						DoDamage(ActorHit);
 					}

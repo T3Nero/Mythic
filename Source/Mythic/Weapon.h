@@ -181,6 +181,7 @@ private:
 
 	float BrutalityDamage;
 	bool bBrutalHit;
+	bool bIsTwoHandExplosion;
 
 	class AParentCharacter* WeaponOwner;
 	AParentCharacter* Enemy;

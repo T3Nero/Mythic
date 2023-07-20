@@ -385,17 +385,24 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 	{
 		TotalDamageTaken = FMath::Clamp(TotalDamageTaken, 1, TotalDamageTaken);
 		bool bCriticalHit;
-		SpawnBlood();
+
+		if(!bPoisonApplied)
+		{
+			SpawnBlood();
+		}
 
 		// Critical Hit
-		if(FMath::RandRange(0, 100) <= WeaponOwner->BaseStatsStruct->CriticalChance)
+		if(WeaponOwner)
 		{
-			TotalDamageTaken *= 2;
-			bCriticalHit = true;
-		}
-		else
-		{
-			bCriticalHit = false;
+			if(FMath::RandRange(0, 100) <= WeaponOwner->BaseStatsStruct->CriticalChance)
+			{
+				TotalDamageTaken *= 2;
+				bCriticalHit = true;
+			}
+			else
+			{
+				bCriticalHit = false;
+			}
 		}
 
 		// Dead

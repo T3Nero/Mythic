@@ -11,6 +11,7 @@
 
 AWeapon::AWeapon() :
 	WeaponType(EWeaponType::EWT_Null),
+	AttackMultiplierIndex(0),
 	DecreaseAdrenalineTick(5.f)
 {
 	TraceStart = CreateDefaultSubobject<USceneComponent>(TEXT("Trace Start"));
@@ -92,6 +93,8 @@ void AWeapon::DamageDetectionTrace()
 // Called when dealing damage to an enemy hit by detection trace
 void AWeapon::DoDamage(AActor* ActorHit)
 {
+	AttackMultiplierIndex++;
+
 	const float PhysicalDamage = WeaponStats->PhysicalDamage;
 	const float ElementalDamage = WeaponStats->ElementalDamage;
 	const float CharacterDamage = (WeaponOwner->BaseStatsStruct->PhysicalDamage + WeaponOwner->BaseStatsStruct->ElementalDamage);

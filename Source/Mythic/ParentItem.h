@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Mythic/InteractInterface.h"
+#include "MythicPlayerController.h"
 
 #include "ParentItem.generated.h"
 
@@ -13,7 +14,9 @@ enum class EItemType : uint8
 {
 	EIT_Null UMETA(DisplayName = "Null"),
 	EIT_Consumable UMETA(DisplayName = "Consumable"),
-	EIT_Equipment UMETA(DisplayName = "Equipment"),
+	EIT_Weapon UMETA(DisplayName = "Weapon"),
+	EIT_Armour UMETA(DisplayName = "Armour"),
+	EIT_Accessory UMETA(DisplayName = "Accessory"),
 	EIT_QuestItem UMETA(DisplayName = "Quest Item"),
 	EIT_CraftMaterial UMETA(DisplayName = "Crafting Material"),
 
@@ -45,19 +48,19 @@ private:
 	USkeletalMeshComponent* ItemMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Components", meta = (AllowPrivateAccess = "true"))
-	class UWidgetComponent* PickUpWidget;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Components", meta = (AllowPrivateAccess = "true"))
 	class USphereComponent* PickUpCollision;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "References", meta = (AllowPrivateAccess = "true"))
 	class APlayerCharacter* Player;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Properties", meta = (AllowPrivateAccess = "true"))
+	FString ItemName;
+
 	// enum to set the items type (Weapon, Consumable etc.)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Properties", meta = (AllowPrivateAccess = "true"))
 	EItemType ItemType;
 
-
+	class AMythicPlayerController* MPC;
 
 
 public:	
@@ -72,8 +75,6 @@ public:
 	// overriden from InteractInterface
 	virtual void Interact_Implementation() override; // Declared here but will be used in Blueprints as an Interact Event
 
-
-	FORCEINLINE UWidgetComponent* GetPickUpWidget() const { return PickUpWidget; }
 	FORCEINLINE USphereComponent* GetPickUpCollision() const { return PickUpCollision; }
 	FORCEINLINE USkeletalMeshComponent* GetItemMesh() const { return ItemMesh; }
 	FORCEINLINE EItemType GetItemType() const { return ItemType; }

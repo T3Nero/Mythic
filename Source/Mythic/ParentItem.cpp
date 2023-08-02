@@ -15,26 +15,19 @@ AParentItem::AParentItem()
 	ItemMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Item Mesh"));
 	RootComponent = ItemMesh;
 
-	PickUpWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("PickUp Widget"));
-	PickUpWidget->SetupAttachment(ItemMesh);
-
 	PickUpCollision = CreateDefaultSubobject<USphereComponent>(TEXT("PickUp Collision"));
 	PickUpCollision->SetupAttachment(ItemMesh);
 
+	Player = nullptr;
+	ItemName = "Item Name";
 	ItemType = EItemType::EIT_Null;
+	MPC = nullptr;
 }
 
 // Called when the game starts or when spawned
 void AParentItem::BeginPlay()
 {
 	Super::BeginPlay();
-
-	
-
-	if (PickUpWidget)
-	{
-		PickUpWidget->SetVisibility(false);
-	}
 
 	PickUpCollision->OnComponentBeginOverlap.AddDynamic(this, &AParentItem::OnShowItemWidget);
 	PickUpCollision->OnComponentEndOverlap.AddDynamic(this, &AParentItem::OnHideItemWidget);
@@ -54,8 +47,12 @@ void AParentItem::Interact_Implementation()
 	if (Player)
 	{
 		Player->GetItemPickedUp(this);
-		PickUpWidget->SetVisibility(false);
 		PickUpCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		if (MPC)
+		{
+			MPC->GetMythicHUD()->ItemPickUp_Overlay->SetVisibility(ESlateVisibility::Hidden);
+		}
 	}
 }
 
@@ -63,10 +60,17 @@ void AParentItem::OnShowItemWidget(UPrimitiveComponent* OverlappedComponent, AAc
 {
 	if (OtherActor)
 	{
-		Player = Cast<APlayerCharacter>(OtherActor);
-		if (Player)
+		if(!Player && !MPC)
 		{
-			PickUpWidget->SetVisibility(true);
+			Player = Cast<APlayerCharacter>(OtherActor);
+			MPC = Player->GetController<AMythicPlayerController>();
+		}
+
+		if(MPC)
+		{
+			FText ItemNameText = FText::FromString(ItemName);
+			MPC->GetMythicHUD()->ItemName->SetText(ItemNameText);
+			MPC->GetMythicHUD()->ItemPickUp_Overlay->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 	}
 }
@@ -75,10 +79,9 @@ void AParentItem::OnHideItemWidget(UPrimitiveComponent* OverlappedComponent, AAc
 {
 	if (OtherActor)
 	{
-		Player = Cast<APlayerCharacter>(OtherActor);
-		if (Player)
+		if (MPC)
 		{
-			PickUpWidget->SetVisibility(false);
+			MPC->GetMythicHUD()->ItemPickUp_Overlay->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 }

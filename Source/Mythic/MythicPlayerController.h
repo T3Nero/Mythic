@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "MythicHUD.h"
 #include "MythicPlayerController.generated.h"
 
 /**
@@ -24,9 +25,13 @@ private:
 
 	// Reference to player HUD Overlay Class
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-		TSubclassOf<class UUserWidget> HUDOverlayClass;
+		TSubclassOf<class UMythicHUD> HUDOverlayClass;
 
 	// Set in Blueprint from HUDOverlayClass
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-		UUserWidget* HUDOverlay;
+		UMythicHUD* MythicHUD;
+
+public:
+
+	FORCEINLINE UMythicHUD* GetMythicHUD() { return MythicHUD; }
 };

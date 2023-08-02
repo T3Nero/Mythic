@@ -265,7 +265,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 void APlayerCharacter::GetItemPickedUp(AParentItem* Item)
 {
-	if (Item->GetItemType() == EItemType::EIT_Equipment)
+	if (Item->GetItemType() == EItemType::EIT_Weapon)
 	{
 		AWeapon* Weapon = Cast<AWeapon>(Item);
 		EquipWeapon(Weapon);

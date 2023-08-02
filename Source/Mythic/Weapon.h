@@ -17,9 +17,6 @@ struct FWeaponStats : public FTableRowBase
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-		FString Name;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 		int32 PhysicalDamage;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
@@ -158,8 +155,6 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
 		UAnimMontage* SheatheWeapon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon Properties", meta = (AllowPrivateAccess = "true"))
-		UAnimMontage* AttackMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon Components", meta = (AllowPrivateAccess = "true"))
 	USceneComponent* TraceStart;
@@ -171,9 +166,15 @@ private:
 	UPROPERTY(BlueprintReadWrite, Category = "Runtime", meta = (AllowPrivateAccess = "true"))
 	TArray<AActor*> AlreadyDamagedActors;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+		UAnimMontage* AttackMontage;
+
 	// Knockback Montage to play when Brutality Procs
 	UPROPERTY(EditAnywhere, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	UAnimMontage* KnockbackMontage;
+
+	// Increases attack damage during combo if previous attack hit
+	int32 AttackMultiplierIndex;
 
 	
 	float DecreaseAdrenalineTick;
@@ -204,5 +205,8 @@ public:
 	FORCEINLINE AParentCharacter* GetWeaponOwner() const { return WeaponOwner; }
 	FORCEINLINE bool GetBrutalHit() const { return bBrutalHit; }
 	FORCEINLINE EWeaponType GetWeaponType() const { return WeaponType; }
+	FORCEINLINE int32 GetAttackIndex() const { return AttackMultiplierIndex; }
+
+	FORCEINLINE void SetAttackIndex(int32 AI) { AttackMultiplierIndex = AI; }
 	
 };

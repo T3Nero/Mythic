@@ -247,6 +247,11 @@ void AParentCharacter::SetUnoccupied()
 	ComboIndex = 0;
 	bCanAttack = true;
 
+	if(EquippedWeapon != nullptr)
+	{
+		EquippedWeapon->SetAttackIndex(0);
+	}
+
 	// Dodge ends, character can no longer pass through other characters and can be hit
 	// During dodge, character is invincible
 	if(CombatState == ECombatState::ECS_Dodging)
@@ -366,10 +371,10 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 			bNormalHit = true;
 		}
 
-		// Increases damage done during Combo Attack
-		for (int32 i = 0; i <= WeaponOwner->GetComboIndex(); i++)
+		// Increases damage done during Combo Attack if previous attack hit an enemy
+		for (int32 i = 0; i <= WeaponEquipped->GetAttackIndex(); i++)
 		{
-			if(WeaponOwner->GetComboIndex() == 0)
+			if(WeaponEquipped->GetAttackIndex() == 0)
 			{
 				i = 0;
 			}
@@ -384,7 +389,7 @@ float AParentCharacter::TakeDamage(float DamageAmount, FDamageEvent const& Damag
 	if(BaseStatsStruct)
 	{
 		TotalDamageTaken = FMath::Clamp(TotalDamageTaken, 1, TotalDamageTaken);
-		bool bCriticalHit;
+		bool bCriticalHit = false;
 
 		if(!bPoisonApplied)
 		{

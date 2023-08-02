@@ -16,11 +16,11 @@ void AMythicPlayerController::BeginPlay()
 	// Check HUDOverlay has been set in Blueprint
 	if (HUDOverlayClass)
 	{
-		HUDOverlay = CreateWidget<UUserWidget>(this, HUDOverlayClass);
-		if (HUDOverlay)
+		MythicHUD = CreateWidget<UMythicHUD>(this, HUDOverlayClass);
+		if (MythicHUD)
 		{
-			HUDOverlay->AddToViewport();
-			HUDOverlay->SetVisibility(ESlateVisibility::Visible);
+			MythicHUD->AddToViewport();
+			MythicHUD->SetVisibility(ESlateVisibility::Visible);
 		}
 	}
 }
